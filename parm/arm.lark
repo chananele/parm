@@ -1,0 +1,41 @@
+CONDITION: "eq" | "ne" | "gt" | "lt" | "ge" | "le"
+
+REG: "r0" | "r1" | "r2" | "r3" | "r4" | "r5" | "r6"
+
+SHIFT_OP: "lsl" | "lsr" | "asr" | "rrx" | "ror"
+
+SHIFT_VAL: "1".."9"
+         | ("1" | "2") "1".."9"
+         | "30" | "31"
+
+SHIFT: SHIFT_OP "#" SHIFT_VAL
+
+REG_SHIFT: REG ["," SHIFT]
+
+BASE_OPCODE_MEM_SINGLE: "ldr" | "ldrb" | "ldrh" | "str" | "strb" | "strh"
+
+BASE_OPCODE_MEM_MULTI: "stm" | "ldm"
+MEM_MULTI_SFX: "ia" | "ea"
+PSEUDO_OPCODE_MEM_MULTI: "push" | "pop"
+
+OPCODE_MEM_MULTI: BASE_OPCODE_MEM_MULTI [MEM_MULTI_SFX] [CONDITION]
+                | PSEUDO_OPCODE_MEM_MULTI [CONDITION]
+
+OPCODE_MEM_SINGLE: BASE_OPCODE_MEM_SINGLE [CONDITION]
+
+reg_range: REG "-" REG
+reg_list: (REG | reg_range) ("," (REG | reg_range))*
+
+instruction: OPCODE_MEM_SINGLE REG "," "[" SHIFT "]"
+           | OPCODE_MEM_MULTI  REG "," "{" reg_list "}"
+
+ADDRESS: INT | "0x" HEXDIGIT+
+
+line: [ADDRESS ":"] instruction
+
+start: line
+
+%import common.WS
+%import common.INT
+%import common.HEXDIGIT
+%ignore WS
