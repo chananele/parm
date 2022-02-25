@@ -3,6 +3,21 @@ CONDITION_HI: "EQ" | "NE" | "GT" | "LT" | "GE" | "LE"
 
 REG: "r"i "0".."9" | "r10"i | "r11"i | "r12"i | "sp"i | "lr"i | "pc"i
 
+BRANCH_REL_LO: "b" | "bl"
+BRANCH_REL_HI: "B" | "BL"
+OPCODE_BRANCH_REL_LO: BRANCH_REL_LO [CONDITION_LO]
+OPCODE_BRANCH_REL_HI: BRANCH_REL_HI [CONDITION_HI]
+OPCODE_BRANCH_REL: OPCODE_BRANCH_REL_LO | OPCODE_BRANCH_REL_HI
+
+BRANCH_IND_LO: "bx" | "blx"
+BRANCH_IND_HI: "BX" | "BLX"
+OPCODE_BRANCH_IND_LO: BRANCH_IND_LO [CONDITION_LO]
+OPCODE_BRANCH_IND_HI: BRANCH_IND_HI [CONDITION_HI]
+OPCODE_BRANCH_IND: OPCODE_BRANCH_IND_LO | BRANCH_IND_HI CONDITION_HI
+
+BRANCH_TARGET: ADDRESS
+             | "$" [("+" | "-") NUM]
+
 SHIFT_OP_LO: "lsl" | "lsr" | "asr" | "rrx" | "ror"
 SHIFT_OP_HI: "LSL" | "LSR" | "ASR" | "RRX" | "ROR"
 SHIFT_OP: SHIFT_OP_LO | SHIFT_OP_HI
@@ -36,16 +51,23 @@ OPCODE_MEM_SINGLE: BASE_OPCODE_MEM_SINGLE_LO [CONDITION_LO]
 reg_range: REG "-" REG
 reg_list: (REG | reg_range) ("," (REG | reg_range))*
 
-instruction: OPCODE_MEM_SINGLE REG "," "[" REG ["," REG] ["," SHIFT] "]"
-           | OPCODE_MEM_MULTI  REG "," "{" reg_list "}"
+instruction: OPCODE_MEM_SINGLE _POST_OPCODE REG "," "[" REG ["," REG] ["," SHIFT] "]"
+           | OPCODE_MEM_MULTI _POST_OPCODE REG "," "{" reg_list "}"
+           | OPCODE_BRANCH_REL _POST_OPCODE BRANCH_TARGET
+           | OPCODE_BRANCH_IND _POST_OPCODE REG
 
-ADDRESS: INT | "0x" HEXDIGIT+
+DEC_NUM: "0" | "1".."9" DIGIT*
+HEX_NUM: "0x" HEXDIGIT+
+NUM: DEC_NUM | HEX_NUM
+ADDRESS: NUM
 
 line: [ADDRESS ":"] instruction
 
 start: line
 
-%import common.WS
 %import common.INT
 %import common.HEXDIGIT
-%ignore WS
+%import common.DIGIT
+%import common.WS_INLINE -> _WS
+
+%declare _POST_OPCODE
