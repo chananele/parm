@@ -1,8 +1,11 @@
-CONDITION: "eq" | "ne" | "gt" | "lt" | "ge" | "le"
+CONDITION_LO: "eq" | "ne" | "gt" | "lt" | "ge" | "le"
+CONDITION_HI: "EQ" | "NE" | "GT" | "LT" | "GE" | "LE"
 
-REG: "r0" | "r1" | "r2" | "r3" | "r4" | "r5" | "r6"
+REG: "r"i "0".."9" | "r10"i | "r11"i | "r12"i | "sp"i | "lr"i | "pc"i
 
-SHIFT_OP: "lsl" | "lsr" | "asr" | "rrx" | "ror"
+SHIFT_OP_LO: "lsl" | "lsr" | "asr" | "rrx" | "ror"
+SHIFT_OP_HI: "LSL" | "LSR" | "ASR" | "RRX" | "ROR"
+SHIFT_OP: SHIFT_OP_LO | SHIFT_OP_HI
 
 SHIFT_VAL: "1".."9"
          | ("1" | "2") "1".."9"
@@ -10,23 +13,30 @@ SHIFT_VAL: "1".."9"
 
 SHIFT: SHIFT_OP "#" SHIFT_VAL
 
-REG_SHIFT: REG ["," SHIFT]
+BASE_OPCODE_MEM_SINGLE_LO: "ldr" | "ldrb" | "ldrh" | "str" | "strb" | "strh"
+BASE_OPCODE_MEM_SINGLE_HI: "LDR" | "LDRB" | "LDRH" | "STR" | "STRB" | "STRH"
 
-BASE_OPCODE_MEM_SINGLE: "ldr" | "ldrb" | "ldrh" | "str" | "strb" | "strh"
+BASE_OPCODE_MEM_MULTI_LO: "stm" | "ldm"
+BASE_OPCODE_MEM_MULTI_HI: "STM" | "LDM"
 
-BASE_OPCODE_MEM_MULTI: "stm" | "ldm"
-MEM_MULTI_SFX: "ia" | "ea"
-PSEUDO_OPCODE_MEM_MULTI: "push" | "pop"
+MEM_MULTI_SFX_LO: "ia" | "ea"
+MEM_MULTI_SFX_HI: "IA" | "EA"
 
-OPCODE_MEM_MULTI: BASE_OPCODE_MEM_MULTI [MEM_MULTI_SFX] [CONDITION]
-                | PSEUDO_OPCODE_MEM_MULTI [CONDITION]
+PSEUDO_OPCODE_MEM_MULTI_LO: "push" | "pop"
+PSEUDO_OPCODE_MEM_MULTI_HI: "PUSH" | "POP"
 
-OPCODE_MEM_SINGLE: BASE_OPCODE_MEM_SINGLE [CONDITION]
+OPCODE_MEM_MULTI: BASE_OPCODE_MEM_MULTI_LO [MEM_MULTI_SFX_LO] [CONDITION_LO]
+                | BASE_OPCODE_MEM_MULTI_HI [MEM_MULTI_SFX_HI] [CONDITION_HI]
+                | PSEUDO_OPCODE_MEM_MULTI_LO [CONDITION_LO]
+                | PSEUDO_OPCODE_MEM_MULTI_HI [CONDITION_HI]
+
+OPCODE_MEM_SINGLE: BASE_OPCODE_MEM_SINGLE_LO [CONDITION_LO]
+                 | BASE_OPCODE_MEM_SINGLE_HI [CONDITION_HI]
 
 reg_range: REG "-" REG
 reg_list: (REG | reg_range) ("," (REG | reg_range))*
 
-instruction: OPCODE_MEM_SINGLE REG "," "[" SHIFT "]"
+instruction: OPCODE_MEM_SINGLE REG "," "[" REG ["," REG] ["," SHIFT] "]"
            | OPCODE_MEM_MULTI  REG "," "{" reg_list "}"
 
 ADDRESS: INT | "0x" HEXDIGIT+

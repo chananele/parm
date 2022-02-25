@@ -3,8 +3,9 @@ from lark import Lark
 
 def load_parser():
     parser = Lark.open('arm.lark', rel_to=__file__, parser='lalr')
-    t = parser.parse('0x1000: ldm r0, {r0, r2-r5}')
-    print(t)
+    print(parser.parse('0x1000: ldm r0, {r0, r2-r5}'))
+    print(parser.parse('strbeq r2, [r4, lsl#8]'))
+    print(parser.parse('LDR R8, [R0, R0, ASR#31]'))
 
 
 def main():
