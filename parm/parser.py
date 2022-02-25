@@ -19,6 +19,10 @@ def load_parser():
     print(parser.parse('LDR R8, [R0, R0, ASR#31]'))
     print(parser.parse('25: blx lr'))
     print(parser.parse('25: beq 0x2000'))
+    print(parser.parse('adc r0, r1'))
+    print(parser.parse('SUB r0, r1, r2, lsl#6'))
+    print(parser.parse('mov r0, r3, lsl#30'))
+    print(parser.parse('mov r0, #5'))
 
 
 def main():

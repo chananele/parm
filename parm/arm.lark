@@ -1,7 +1,12 @@
-CONDITION_LO: "eq" | "ne" | "gt" | "lt" | "ge" | "le"
-CONDITION_HI: "EQ" | "NE" | "GT" | "LT" | "GE" | "LE"
+CONDITION_LO: "eq" | "ne" | "cs" | "hs" | "cc" | "lo" | "mi" | "pl" | "vs" | "vc" | "hi" | "ls" | "ge" | "lt" | "gt" | "le" | "al"
+CONDITION_HI: "EQ" | "NE" | "CS" | "HS" | "CC" | "LO" | "MI" | "PL" | "VS" | "VC" | "HI" | "LS" | "GE" | "LT" | "GT" | "LE" | "AL"
 
 REG: "r"i "0".."9" | "r10"i | "r11"i | "r12"i | "sp"i | "lr"i | "pc"i
+
+S_LO: "s"
+S_HI: "S"
+
+immediate: "#" NUM
 
 BRANCH_REL_LO: "b" | "bl"
 BRANCH_REL_HI: "B" | "BL"
@@ -48,6 +53,16 @@ OPCODE_MEM_MULTI: BASE_OPCODE_MEM_MULTI_LO [MEM_MULTI_SFX_LO] [CONDITION_LO]
 OPCODE_MEM_SINGLE: BASE_OPCODE_MEM_SINGLE_LO [CONDITION_LO]
                  | BASE_OPCODE_MEM_SINGLE_HI [CONDITION_HI]
 
+BASE_OPCODE_MOV_LO: "mov"
+BASE_OPCODE_MOV_HI: "MOV"
+OPCODE_MOV: BASE_OPCODE_MOV_LO [S_LO] [CONDITION_LO]
+          | BASE_OPCODE_MOV_HI [S_HI] [CONDITION_HI]
+
+BASE_OPCODE_ARITHMETIC_LO: "add" | "sub" | "rsb" | "adc" | "sbc" | "rsc"
+BASE_OPCODE_ARITHMETIC_HI: "ADD" | "SUB" | "RSB" | "ADC" | "SBC" | "RSC"
+OPCODE_ARITHMETIC: BASE_OPCODE_ARITHMETIC_LO [CONDITION_LO] [S_LO]
+                 | BASE_OPCODE_ARITHMETIC_HI [CONDITION_HI] [S_HI]
+
 reg_range: REG "-" REG
 reg_list: (REG | reg_range) ("," (REG | reg_range))*
 
@@ -55,6 +70,9 @@ instruction: OPCODE_MEM_SINGLE _POST_OPCODE REG "," "[" REG ["," REG] ["," SHIFT
            | OPCODE_MEM_MULTI _POST_OPCODE REG "," "{" reg_list "}"
            | OPCODE_BRANCH_REL _POST_OPCODE BRANCH_TARGET
            | OPCODE_BRANCH_IND _POST_OPCODE REG
+           | OPCODE_MOV _POST_OPCODE REG "," REG ["," SHIFT]
+           | OPCODE_MOV _POST_OPCODE REG "," immediate
+           | OPCODE_ARITHMETIC _POST_OPCODE REG "," REG ["," REG] ["," SHIFT]
 
 DEC_NUM: "0" | "1".."9" DIGIT*
 HEX_NUM: "0x" HEXDIGIT+
