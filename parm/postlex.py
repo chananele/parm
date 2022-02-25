@@ -41,3 +41,11 @@ class ArmSpacer(PostLex, ABC):
     def always_accept(self):
         result = (self.ws_type, )
         return result
+
+
+class Spacer(ArmSpacer):
+    ws_type = '_WS'
+    injected_type = '_POST_OPCODE'
+
+    def is_opcode_types(self, token_type):
+        return token_type.startswith('OPCODE')
