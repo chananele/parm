@@ -16,12 +16,6 @@ def _build_reg_index():
 REG_INDEX = _build_reg_index()
 
 
-class Fixity(Enum):
-    IMMEDIATE = 0
-    PREFIX = 1
-    POSTFIX = 2
-
-
 class Line:
     def __init__(self, instruction, address=None):
         self.address = address
@@ -115,24 +109,24 @@ class MemMulti:
 
 
 class MemAccess:
-    def __init__(self, reg, offset: Immediate, fixity: Fixity):
-        if offset is None:
-            assert fixity == Fixity.IMMEDIATE
-            offset = Immediate(0)
-
+    def __init__(self, reg, offset):
         self.reg = reg
         self.offset = offset
-        self.fixity = fixity
 
+
+class MemAccessOffset(MemAccess):
     def __str__(self):
-        if self.fixity == Fixity.IMMEDIATE:
-            return '[{}, {}]'.format(self.reg, self.offset)
-        if self.fixity == Fixity.PREFIX:
-            return '[{}, {}]!'.format(self.reg, self.offset)
-        if self.fixity == Fixity.POSTFIX:
-            return '[{}], {}'.format(self.reg, self.offset)
+        return '[{}, {}]'.format(self.reg, self.offset)
 
-        raise ValueError('Invalid fixity: {}'.format(self.fixity))
+
+class MemAccessPreIndexed(MemAccess):
+    def __str__(self):
+        return '[{}, {}]!'.format(self.reg, self.offset)
+
+
+class MemAccessPostIndexed(MemAccess):
+    def __str__(self):
+        return '[{}], {}'.format(self.reg, self.offset)
 
 
 class ArmTransformer(Transformer):
@@ -172,15 +166,21 @@ class ArmTransformer(Transformer):
 
     def mem_expr_immediate(self, parts):
         dst, src, offset = parts
-        return Operands(dst, MemAccess(src, offset, Fixity.IMMEDIATE))
+        if offset is None:
+            offset = Immediate(0)
+        return Operands(dst, MemAccessOffset(src, offset))
 
-    def mem_expr_pre_indexed(self, parts):
+    def mem_expr_immediate_pre(self, parts):
         dst, src, offset = parts
-        return Operands(dst, MemAccess(src, offset, Fixity.PREFIX))
+        return Operands(dst, MemAccessPreIndexed(src, offset))
 
-    def mem_expr_post_index(self, parts):
+    def mem_expr_immediate_post(self, parts):
         dst, src, offset = parts
-        return Operands(dst, MemAccess(src, offset, Fixity.POSTFIX))
+        return Operands(dst, MemAccessPostIndexed(src, offset))
+
+    mem_expr_reg = mem_expr_immediate
+    mem_expr_reg_pre = mem_expr_immediate_pre
+    mem_expr_reg_post = mem_expr_immediate_post
 
     def reg_range(self, parts):
         start_reg, end_reg = parts

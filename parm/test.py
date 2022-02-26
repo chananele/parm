@@ -13,6 +13,7 @@ def load_trees(parser):
         parser.parse('SUB r0, r1, r2, lsl#6'),
         parser.parse('mov r0, r3, lsl#30'),
         parser.parse('mov r0, #5'),
+        parser.parse('ldrne r0, [r4, r1, asr#4]!'),
     ]
 
 

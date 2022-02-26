@@ -75,8 +75,11 @@ arithmetic_operands: REG "," shifted_reg
                    | REG "," REG "," shifted_reg
 
 mem_single_operand: REG "," "[" REG ["," immediate] "]" -> mem_expr_immediate
-                  | REG "," "[" REG "," immediate "]" "!" -> mem_expr_pre_indexed
-                  | REG "," "[" REG "]" "," immediate -> mem_expr_post_indexed
+                  | REG "," "[" REG "," immediate "]" "!" -> mem_expr_immediate_pre
+                  | REG "," "[" REG "]" "," immediate -> mem_expr_immediate_post
+                  | REG "," "[" REG "," shifted_reg "]" -> mem_expr_reg
+                  | REG "," "[" REG "," shifted_reg "]" "!" -> mem_expr_reg_pre
+                  | REG "," "[" REG "]" "," shifted_reg -> mem_expr_reg_post
 
 mem_multi_operand: REG "," "{" reg_list "}"
 
