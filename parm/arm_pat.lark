@@ -1,0 +1,78 @@
+CAPTURE: CNAME
+
+wildcard_m: "*" [":" CAPTURE]
+wildcard_s: "@" [":" CAPTURE]
+wildcard_o: "?" [":" CAPTURE]
+
+
+immediate_pat: "#" wildcard_s -> immediate_wildcard
+             | "#" NUM -> immediate_value
+
+
+address_pat: ADDRESS -> address
+           | CAPTURE -> label
+
+
+reg_pat: REG -> reg
+       | wildcard_s -> reg_wildcard
+
+shift_op_pat: wildcard_s -> shift_op_wildcard
+            | SHIFT_OP -> shift_op
+
+shift_val_pat: wildcard_s -> shift_val_wildcard
+             | SHIFT_VAL -> shift_val
+
+shift_pat: shift_op_pat "#" shift_val_pat
+
+shifted_reg_pat: reg_pat ["," shift_pat]
+
+_mem_single_pat_1: "[" wildcard_m "]"
+                 | "[" reg_pat ["," immediate_pat] "]"
+                 | "[" reg_pat "," immediate_pat "]" ("!" | wildcard_m)
+
+pre_indexed: "!"
+pre_index_pat: pre_indexed
+             | wildcard_o -> maybe_pre_indexed
+
+post_index_pat: "," mem_offset_optional_pat
+
+mem_offset_pat: wildcard_s
+              | immediate_pat
+              | REG ["," shift_pat] -> shifted_reg_offset
+
+mem_offset_optional_pat: mem_offset_pat
+                       | wildcard_o
+
+mem_single_pat: "[" wildcard_m "]" ([pre_index_pat] | [post_index_pat])
+              | "[" wildcard_m "]" wildcard_o "," wildcard_o
+              | "[" reg_pat "]" [post_index_pat]
+              | "[" reg_pat "," mem_offset_pat "]" [pre_indexed]
+              | "[" reg_pat "," mem_offset_optional_pat "]" wildcard_o
+
+reg_range_pat: reg_pat "-" reg_pat
+_mem_multi_pat_1: (reg_pat | reg_range_pat | wildcard_m)
+_mem_multi_pat_2: (reg_pat | reg_range_pat) ["," _mem_multi_pat_1]
+mem_multi_pat: "{" _mem_multi_pat_1 ("," _mem_multi_pat_2)* "}"
+
+operands: reg_pat ["," shifted_reg_pat] ["," wildcard_m]
+        | reg_pat "," mem_single_pat
+        | reg_pat "," mem_multi_pat
+
+OPCODE_WILDCARD: "*"
+
+opcode_wildcard: OPCODE_WILDCARD [":" CAPTURE]
+
+instruction_pat: opcode_wildcard _POST_OPCODE operands
+
+
+line: [address_pat ":"] instruction_pat
+
+%import .arm.ADDRESS
+%import .arm.NUM
+%import .arm.REG
+%import .arm.SHIFT_OP
+%import .arm.SHIFT_VAL
+%import .arm._POST_OPCODE
+
+%import common.WS_INLINE -> _WS
+%import common.CNAME

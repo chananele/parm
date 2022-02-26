@@ -1,7 +1,7 @@
 from parm import parsers, transformers
 
 
-def load_trees(parser):
+def load_arm_code_trees(parser):
     return [
         parser.parse('0x1000: ldm r0, {r0, r2-r5, lr, pc}'),
         parser.parse('ldr r1, [r1]'),
@@ -17,13 +17,35 @@ def load_trees(parser):
     ]
 
 
-def main():
+def test_arm_code():
     parser = parsers.create_arm_parser()
-    trees = load_trees(parser)
+    trees = load_arm_code_trees(parser)
     transformer = transformers.ArmTransformer()
     for tree in trees:
         result = transformer.transform(tree)
         print(result)
+
+
+def load_arm_pattern_trees(parser):
+    yield parser.parse('* r0')
+    yield parser.parse('test: * r1, r2')
+    yield parser.parse('0x1000: * r1, [r3, @]')
+    yield parser.parse('* @, [*]?')
+    yield parser.parse('* r1, [r2, ?]?')
+    yield parser.parse('* r1, [r2, ?:X]?')
+    yield parser.parse('hello: *:opcode r5, {r2-@, r6, *}')
+
+
+def test_arm_patterns():
+    parser = parsers.create_arm_pattern_parser()
+    trees = load_arm_pattern_trees(parser)
+    for tree in trees:
+        print(tree)
+
+
+def main():
+    test_arm_code()
+    test_arm_patterns()
 
 
 if __name__ == '__main__':
