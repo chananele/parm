@@ -5,18 +5,19 @@ binary.
 The APIs are still **very much** a work in progress, and subject to change.
 
 ```python
-from parm.envs.ida import idapython_create_env
-env = idapython_create_env()
+from parm.envs.ida import idapython_create_program
+prg = idapython_create_program()
+env = prg.env
 
 # Match a pattern at a specified address
-cursor = env.create_cursor(0x1000)
+cursor = prg.create_cursor(0x1000)
 result = env.match("""
     ldr @:reg, [r1]
     mov r0, #5
 """, cursor=cursor)
 print(f'Reg: {result["reg"]}')
 
-results = env.find_all("""
+results = prg.find_all("""
 func_start:
     push {*, lr}
 """)

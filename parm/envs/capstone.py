@@ -1,5 +1,5 @@
-from parm.api.env import Env
+from parm.api.program import Program
 
 
-class CapstoneEnv(Env):
+class CapstoneProgram(Program):
     pass

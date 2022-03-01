@@ -5,9 +5,11 @@
 ...     def get_inc(self):
 ...         self.v += 1
 ...         return self.v
+...     def reset(self):
+...         self.v = 0
 >>> z = AutoInc()
 >>> x = EmbeddedLocalNS()
->>> x.set_magic('i', z.get_inc)
+>>> x.add_magic('i', z.get_inc)
 >>> print(x.evaluate('i'))
 1
 >>> print(x.evaluate('i'))
@@ -16,9 +18,26 @@
 7
 >>> print(x.evaluate('i * 2'))
 10
+
+>>> x.add_magic('reset', lambda n: n.reset(), z)
+>>> print(x.evaluate('i'))
+6
+>>> x.execute('reset')
+>>> print(x.evaluate('i'))
+1
 """
 
 from collections.abc import Mapping
+
+
+class Magic:
+    def __init__(self, callback, *args, **kwargs):
+        self.callback = callback
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self):
+        return self.callback(*self.args, **self.kwargs)
 
 
 class EmbeddedLocalNS(Mapping):
@@ -42,7 +61,7 @@ class EmbeddedLocalNS(Mapping):
             yield m()
 
     def clone(self):
-        return EmbeddedLocalNS(self._magics, self._vals)
+        return EmbeddedLocalNS(self._magics.copy(), self._vals.copy())
 
     def execute(self, code, _globals=None):
         exec(code, _globals, self.clone())
@@ -50,9 +69,14 @@ class EmbeddedLocalNS(Mapping):
     def evaluate(self, code, _globals=None):
         return eval(code, _globals, self.clone())
 
-    def set_magic(self, key, callback):
+    def set_magic(self, key, callback, *args, **kwargs):
         assert key not in self._vals
-        self._magics[key] = callback
+        self._magics[key] = Magic(callback, *args, **kwargs)
+
+    def add_magic(self, key, callback, *args, **kwargs):
+        if key in self._magics:
+            raise ValueError(f'Magic "{key}" already exists!')
+        self.set_magic(key, callback, *args, **kwargs)
 
     def __getitem__(self, item):
         try:
