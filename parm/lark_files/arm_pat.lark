@@ -9,11 +9,11 @@ immediate_pat: "#" wildcard_s -> immediate_wildcard
              | "#" NUM -> immediate_value
 
 
-address_pat: ADDRESS -> address
+address_pat: NUM -> address
            | CAPTURE -> label
 
 
-reg_pat: REG -> reg
+reg_pat: reg
        | wildcard_s -> reg_wildcard
 
 shift_op_pat: wildcard_s -> shift_op_wildcard
@@ -31,14 +31,15 @@ _mem_single_pat_1: "[" wildcard_m "]"
                  | "[" reg_pat "," immediate_pat "]" ("!" | wildcard_m)
 
 pre_indexed: "!"
+maybe_pre_indexed: wildcard_o
 pre_index_pat: pre_indexed
-             | wildcard_o -> maybe_pre_indexed
+             | maybe_pre_indexed
 
 post_index_pat: "," mem_offset_optional_pat
 
 mem_offset_pat: wildcard_s
               | immediate_pat
-              | REG ["," shift_pat] -> shifted_reg_offset
+              | reg ["," shift_pat] -> shifted_reg_offset
 
 mem_offset_optional_pat: mem_offset_pat
                        | wildcard_o
@@ -47,7 +48,7 @@ mem_single_pat: "[" wildcard_m "]" ([pre_index_pat] | [post_index_pat])
               | "[" wildcard_m "]" wildcard_o "," wildcard_o
               | "[" reg_pat "]" [post_index_pat]
               | "[" reg_pat "," mem_offset_pat "]" [pre_indexed]
-              | "[" reg_pat "," mem_offset_optional_pat "]" wildcard_o
+              | "[" reg_pat "," mem_offset_optional_pat "]" maybe_pre_indexed
 
 reg_range_pat: reg_pat "-" reg_pat
 _mem_multi_pat_1: (reg_pat | reg_range_pat | wildcard_m)
@@ -65,14 +66,14 @@ opcode_wildcard: OPCODE_WILDCARD [":" CAPTURE]
 instruction_pat: opcode_wildcard _POST_OPCODE operands
 
 
-line: [address_pat ":"] instruction_pat
+line_pat: [address_pat ":"] instruction_pat
 
-%import .arm.ADDRESS
 %import .arm.NUM
-%import .arm.REG
 %import .arm.SHIFT_OP
 %import .arm.SHIFT_VAL
 %import .arm._POST_OPCODE
+
+%import .arm.reg
 
 %import common.WS_INLINE -> _WS
 %import common.CNAME

@@ -1,4 +1,5 @@
-from parm import parsers, transformers
+from parm import parsers
+from parm.transformers import arm
 
 
 def load_arm_code_trees(parser):
@@ -20,10 +21,10 @@ def load_arm_code_trees(parser):
 def test_arm_code():
     parser = parsers.create_arm_parser()
     trees = load_arm_code_trees(parser)
-    transformer = transformers.ArmTransformer()
+    transformer = arm.ArmTransformer()
     for tree in trees:
         result = transformer.transform(tree)
-        print(result)
+        print(repr(result))
 
 
 def load_arm_pattern_trees(parser):
@@ -45,7 +46,7 @@ def test_arm_patterns():
 
 def main():
     test_arm_code()
-    test_arm_patterns()
+    # test_arm_patterns()
 
 
 if __name__ == '__main__':

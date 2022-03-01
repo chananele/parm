@@ -20,9 +20,6 @@ OPCODE_BRANCH_IND_LO: BRANCH_IND_LO [CONDITION_LO]
 OPCODE_BRANCH_IND_HI: BRANCH_IND_HI [CONDITION_HI]
 OPCODE_BRANCH_IND: OPCODE_BRANCH_IND_LO | BRANCH_IND_HI CONDITION_HI
 
-BRANCH_TARGET: ADDRESS
-             | "$" [("+" | "-") NUM]
-
 SHIFT_OP_LO: "lsl" | "lsr" | "asr" | "rrx" | "ror"
 SHIFT_OP_HI: "LSL" | "LSR" | "ASR" | "RRX" | "ROR"
 SHIFT_OP: SHIFT_OP_LO | SHIFT_OP_HI
@@ -63,39 +60,41 @@ BASE_OPCODE_ARITHMETIC_HI: "ADD" | "SUB" | "RSB" | "ADC" | "SBC" | "RSC"
 OPCODE_ARITHMETIC: BASE_OPCODE_ARITHMETIC_LO [CONDITION_LO] [S_LO]
              | BASE_OPCODE_ARITHMETIC_HI [CONDITION_HI] [S_HI]
 
-reg_range: REG "-" REG
-reg_list: (REG | reg_range) ("," (REG | reg_range))*
+reg: REG
+reg_range: reg "-" reg
+reg_list: (reg | reg_range) ("," (reg | reg_range))*
 
-mov_operands: REG "," shifted_reg
-            | REG "," immediate
+mov_operands: reg "," shifted_reg
+            | reg "," immediate
 
-shifted_reg: REG ["," SHIFT]
+shifted_reg: reg ["," SHIFT]
 
-arithmetic_operands: REG "," shifted_reg
-                   | REG "," REG "," shifted_reg
+arithmetic_operands: reg "," shifted_reg
+                   | reg "," reg "," shifted_reg
 
-mem_single_operand: REG "," "[" REG ["," immediate] "]" -> mem_expr_immediate
-                  | REG "," "[" REG "," immediate "]" "!" -> mem_expr_immediate_pre
-                  | REG "," "[" REG "]" "," immediate -> mem_expr_immediate_post
-                  | REG "," "[" REG "," shifted_reg "]" -> mem_expr_reg
-                  | REG "," "[" REG "," shifted_reg "]" "!" -> mem_expr_reg_pre
-                  | REG "," "[" REG "]" "," shifted_reg -> mem_expr_reg_post
+mem_single_operand: reg "," "[" reg ["," immediate] "]" -> mem_expr_immediate
+                  | reg "," "[" reg "," immediate "]" "!" -> mem_expr_immediate_pre
+                  | reg "," "[" reg "]" "," immediate -> mem_expr_immediate_post
+                  | reg "," "[" reg "," shifted_reg "]" -> mem_expr_reg
+                  | reg "," "[" reg "," shifted_reg "]" "!" -> mem_expr_reg_pre
+                  | reg "," "[" reg "]" "," shifted_reg -> mem_expr_reg_post
 
-mem_multi_operand: REG "," "{" reg_list "}"
+mem_multi_operand: reg "," "{" reg_list "}"
 
 instruction: OPCODE_MEM_SINGLE _POST_OPCODE mem_single_operand
            | OPCODE_MEM_MULTI _POST_OPCODE mem_multi_operand
-           | OPCODE_BRANCH_REL _POST_OPCODE BRANCH_TARGET
-           | OPCODE_BRANCH_IND _POST_OPCODE REG
+           | OPCODE_BRANCH_REL _POST_OPCODE address
+           | OPCODE_BRANCH_IND _POST_OPCODE reg
            | OPCODE_MOV _POST_OPCODE mov_operands
            | OPCODE_ARITHMETIC _POST_OPCODE arithmetic_operands
 
 DEC_NUM: "0" | "1".."9" DIGIT*
 HEX_NUM: "0x" HEXDIGIT+
 NUM: DEC_NUM | HEX_NUM
-ADDRESS: NUM
 
-line: [ADDRESS ":"] instruction
+address: NUM
+
+line: [address ":"] instruction
 
 %import common.INT
 %import common.HEXDIGIT

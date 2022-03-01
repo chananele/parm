@@ -36,9 +36,9 @@ def create_parser(path, rel_to, start, postlex):
 
 def create_arm_parser():
     spacer = ArmSpacer()
-    return create_parser('arm.lark', rel_to=__file__, start='line', postlex=spacer)
+    return create_parser('lark_files/arm.lark', rel_to=__file__, start='line', postlex=spacer)
 
 
 def create_arm_pattern_parser():
     spacer = ArmPatSpacer(debug=True)
-    return create_parser('arm_pat.lark', rel_to=__file__, start='line', postlex=spacer)
+    return create_parser('lark_files/arm_pat.lark', rel_to=__file__, start='line_pat', postlex=spacer)
