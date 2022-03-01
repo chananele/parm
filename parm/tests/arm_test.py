@@ -14,9 +14,37 @@ class ArmParseTest(TestCase):
         parsed = self.parser.parse(*args, **kwargs)
         return self.transformer.transform(parsed)
 
-    def test_transformations(self):
-        expected = Line(Instruction('ldm', [Operands(Reg('r0'), MemMulti(
-            RegList([Reg('r0'), Reg('r2'), Reg('r3'), Reg('r4'), Reg('r5'), Reg('lr'), Reg('pc')])))]), Address(0x1000))
+    def test_mov(self):
+        expected = Line(Instruction('mov', Operands(Reg('r0'), Immediate(0x10))))
+        assert self._pt('mov r0, #0x10') == expected
+
+    def test_same_address(self):
+        expected = Line(Instruction('mov', Operands(Reg('r0'), Immediate(0x10))), Address(0x300))
+        assert self._pt('0x300: mov r0, #0x10') == expected
+
+    def test_different_address(self):
+        unexpected = Line(Instruction('mov', Operands(Reg('r0'), Immediate(0x10))), Address(0x400))
+        assert self._pt('0x300: mov r0, #0x10') != unexpected
+
+    def test_ldm(self):
+        expected = Line(Instruction('ldm', Operands(Reg('r0'), MemMulti(RegList([Reg('r0'), Reg('r2')])))))
+        assert self._pt('ldm r0, {r0, r2}') == expected
+
+    def test_cases(self):
+        expected = Line(Instruction('ldm', Operands(Reg('r0'), MemMulti(RegList([Reg('r0'), Reg('r2')])))))
+        assert self._pt('LDM R0, {R0, R2}') == expected
+
+    def test_ldm_range(self):
+        expected = Line(Instruction('ldm', Operands(Reg('r0'), MemMulti(RegList([Reg('r0'), Reg('r1'), Reg('r2')])))))
+        assert self._pt('LDM R0, {R0-R2}') == expected
+
+    def test_conditional(self):
+        expected = Line(Instruction('movne', Operands(Reg('r0'), ShiftedReg(Reg('r1')))))
+        assert self._pt('movne r0, r1') == expected
+
+    def test_complex(self):
+        expected = Line(Instruction('ldm', Operands(Reg('r0'), MemMulti(
+            RegList([Reg('r0'), Reg('r2'), Reg('r3'), Reg('r4'), Reg('r5'), Reg('lr'), Reg('pc')])))), Address(0x1000))
         assert self._pt('0x1000: ldm r0, {r0, r2-r5, lr, pc}') == expected
 
 
@@ -34,22 +62,3 @@ def load_arm_code_trees(parser):
         parser.parse('mov r0, #5'),
         parser.parse('ldrne r0, [r4, r1, asr#4]!'),
     ]
-
-
-def test_arm_code():
-    parser = parsers.create_arm_parser()
-    trees = load_arm_code_trees(parser)
-    transformer = ArmTransformer()
-    for tree in trees:
-        result = transformer.transform(tree)
-        print(repr(result))
-
-
-def main():
-    test_arm_code()
-
-
-if __name__ == '__main__':
-    import sys
-
-    sys.exit(main())

@@ -48,7 +48,7 @@ class Reg:
     def __eq__(self, other):
         if not isinstance(other, Reg):
             return False
-        return self.name == other.name
+        return self.name.lower() == other.name.lower()
 
     def __str__(self):
         return self.name
@@ -63,6 +63,8 @@ class ShiftedReg:
         self.shift = shift
 
     def __eq__(self, other):
+        if self.shift is None and isinstance(other, Reg):
+            return self.reg == other
         if not isinstance(other, ShiftedReg):
             return False
         return other.reg == self.reg and other.shift == self.shift
@@ -88,7 +90,7 @@ class Instruction:
     def __eq__(self, other):
         if not isinstance(other, Instruction):
             return False
-        if not self.opcode == other.opcode:
+        if not self.opcode.lower() == other.opcode.lower():
             return False
         if not self.operands == other.operands:
             return False
@@ -252,8 +254,7 @@ class ArmTransformer(Transformer):
         return Line(instruction, address)
 
     def instruction(self, inst):
-        opcode = inst[0]
-        operands = inst[1:]
+        opcode, operands = inst
         assert isinstance(opcode, Token)
         return Instruction(opcode.value, operands)
 
