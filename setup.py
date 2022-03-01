@@ -7,6 +7,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'lark',
+        'pytest',
     ],
     entry_points={
         'console_scripts': [

@@ -43,6 +43,7 @@ class Line:
 class Reg:
     def __init__(self, name):
         assert isinstance(name, str)
+        assert name.lower() in REGS
         self.name = name
 
     def __eq__(self, other):
@@ -63,8 +64,6 @@ class ShiftedReg:
         self.shift = shift
 
     def __eq__(self, other):
-        if self.shift is None and isinstance(other, Reg):
-            return self.reg == other
         if not isinstance(other, ShiftedReg):
             return False
         return other.reg == self.reg and other.shift == self.shift
@@ -90,9 +89,9 @@ class Instruction:
     def __eq__(self, other):
         if not isinstance(other, Instruction):
             return False
-        if not self.opcode.lower() == other.opcode.lower():
+        if self.opcode.lower() != other.opcode.lower():
             return False
-        if not self.operands == other.operands:
+        if self.operands != other.operands:
             return False
         return True
 
@@ -102,25 +101,6 @@ class Instruction:
     def __str__(self):
         ps = ', '.join([str(o) for o in self.operands])
         return ' '.join([self.opcode, ps])
-
-
-class Operands:
-    def __init__(self, *ops):
-        self.ops = ops
-
-    def __iter__(self):
-        return iter(self.ops)
-
-    def __eq__(self, other):
-        if not isinstance(other, Operands):
-            return False
-        return self.ops == other.ops
-
-    def __repr__(self):
-        return f'Operands({", ".join(repr(o) for o in self.ops)})'
-
-    def __str__(self):
-        return ', '.join([str(o) for o in self.ops])
 
 
 class Address:
@@ -149,7 +129,7 @@ class Immediate:
         return self.value == other.value
 
     def __repr__(self):
-        return repr(self.value)
+        return f'Immediate({self.value!r})'
 
     def __str__(self):
         return '#{}'.format(self.value)
@@ -214,14 +194,18 @@ class MemMulti:
 
 
 class MemAccess:
-    def __init__(self, reg, offset):
+    def __init__(self, reg, offset=None):
         self.reg = reg
         self.offset = offset
 
     def __eq__(self, other):
         if type(other) is not type(self):
             return False
-        return self.reg == other.reg and self.offset == other.offset
+        if self.reg != other.reg:
+            return False
+        if self.offset != other.offset:
+            return False
+        return True
 
 
 class MemAccessOffset(MemAccess):
@@ -229,10 +213,17 @@ class MemAccessOffset(MemAccess):
         return f'[{self.reg}, {self.offset}]'
 
     def __repr__(self):
-        return f'MemAccessOffset({self.reg!r}, {self.offset!r})'
+        if not self.offset:
+            return f'MemAccessOffset({self.reg!r})'
+        else:
+            return f'MemAccessOffset({self.reg!r}, {self.offset!r})'
 
 
 class MemAccessPreIndexed(MemAccess):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert self.offset != 0
+
     def __str__(self):
         return f'[{self.reg}, {self.offset}]!'
 
@@ -241,6 +232,10 @@ class MemAccessPreIndexed(MemAccess):
 
 
 class MemAccessPostIndexed(MemAccess):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert self.offset != 0
+
     def __str__(self):
         return f'[{self.reg}], {self.offset}'
 
@@ -264,12 +259,12 @@ class ArmTransformer(Transformer):
         if op_cnt == 2:
             rd, rm_shift = operands
             assert isinstance(rd, Reg)
-            return Operands(rd, rd, rm_shift)
+            return [rd, rd, rm_shift]
         else:
             rd, rn, rm_shift = operands
             assert isinstance(rd, Reg)
             assert isinstance(rn, Reg)
-            return Operands(rd, rn, rm_shift)
+            return [rd, rn, rm_shift]
 
     def mem_single_operand(self, operands):
         return operands
@@ -289,7 +284,7 @@ class ArmTransformer(Transformer):
 
     def mov_operands(self, parts):
         rd, op2 = parts
-        return Operands(rd, op2)
+        return [rd, op2]
 
     def immediate(self, value):
         assert len(value) == 1
@@ -297,17 +292,15 @@ class ArmTransformer(Transformer):
 
     def mem_expr_immediate(self, parts):
         dst, src, offset = parts
-        if offset is None:
-            offset = Immediate(0)
-        return Operands(dst, MemAccessOffset(src, offset))
+        return [dst, MemAccessOffset(src, offset)]
 
     def mem_expr_immediate_pre(self, parts):
         dst, src, offset = parts
-        return Operands(dst, MemAccessPreIndexed(src, offset))
+        return [dst, MemAccessPreIndexed(src, offset)]
 
     def mem_expr_immediate_post(self, parts):
         dst, src, offset = parts
-        return Operands(dst, MemAccessPostIndexed(src, offset))
+        return [dst, MemAccessPostIndexed(src, offset)]
 
     mem_expr_reg = mem_expr_immediate
     mem_expr_reg_pre = mem_expr_immediate_pre
@@ -347,7 +340,7 @@ class ArmTransformer(Transformer):
 
     def mem_multi_operand(self, parts):
         dst, reg_list = parts
-        return Operands(dst, MemMulti(reg_list))
+        return [dst, MemMulti(reg_list)]
 
     def address(self, parts):
         (num, ) = parts
