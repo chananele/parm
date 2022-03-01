@@ -8,10 +8,6 @@ class Func:
     def __init__(self, env, program):
         self.env = env
         self.program = program
-        self.add_env_magics()
-
-    def add_env_magics(self):
-        pass
 
     def find_first(self, pattern):
         return find_first(pattern, cursors=self.cursors)

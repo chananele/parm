@@ -8,10 +8,6 @@ from parm.api.common import find_all, find_first, find_single
 class Program:
     def __init__(self, env: Env):
         self.env = env
-        self.add_env_magics()
-
-    def add_env_magics(self):
-        pass
 
     def find_all(self, pattern):
         find_all(pattern, cursors=self.cursors)
@@ -26,6 +22,9 @@ class Program:
         return find_first(pattern, cursors=reversed(self.cursors))
 
     def create_cursor(self, address) -> Cursor:
+        raise NotImplementedError()
+
+    def find_symbol(self, symbol_name) -> Cursor:
         raise NotImplementedError()
 
     @property

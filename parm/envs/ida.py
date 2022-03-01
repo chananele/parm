@@ -1,4 +1,7 @@
+from typing import Iterator
+
 from parm.api.env import Env
+from parm.api.cursor import Cursor
 from parm.api.func import Func
 from parm.api.program import Program
 
@@ -18,10 +21,10 @@ class IDAProgram(Program):
         super().__init__(env)
         self.mods = mods
 
-    def get_func(self, cursor):
+    def get_func(self, cursor) -> IDAFunc:
         raise NotImplementedError()
 
-    def get_xrefs(self, cursor):
+    def get_xrefs(self, cursor) -> Iterator[Cursor]:
         raise NotImplementedError()
 
     def add_env_magics(self):
