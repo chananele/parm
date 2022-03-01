@@ -1,3 +1,23 @@
+"""
+>>> class AutoInc:
+...     def __init__(self):
+...         self.v = 0
+...     def get_inc(self):
+...         self.v += 1
+...         return self.v
+>>> z = AutoInc()
+>>> x = EmbeddedLocalNS()
+>>> x.set_magic('i', z.get_inc)
+>>> print(x.evaluate('i'))
+1
+>>> print(x.evaluate('i'))
+2
+>>> print(x.evaluate('i + i'))
+7
+>>> print(x.evaluate('i * 2'))
+10
+"""
+
 from collections.abc import Mapping
 
 
