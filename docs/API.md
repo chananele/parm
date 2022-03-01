@@ -11,10 +11,10 @@ env = prg.env
 
 # Match a pattern at a specified address
 cursor = prg.create_cursor(0x1000)
-result = env.match("""
+result = cursor.match("""
     ldr @:reg, [r1]
     mov r0, #5
-""", cursor=cursor)
+""")
 print(f'Reg: {result["reg"]}')
 
 results = prg.find_all("""

@@ -1,5 +1,7 @@
 from typing import Reversible
-from parm.api import cursor
+
+from parm.api.cursor import Cursor
+from parm.api.common import find_first
 
 
 class Func:
@@ -12,19 +14,19 @@ class Func:
         pass
 
     def find_first(self, pattern):
-        return self.env.find_first(pattern, cursors=self.cursors)
+        return find_first(pattern, cursors=self.cursors)
 
     def find_last(self, pattern):
-        return self.env.find_first(pattern, cursors=reversed(self.cursors))
+        return find_first(pattern, cursors=reversed(self.cursors))
 
     @property
-    def cursors(self) -> Reversible[cursor.Cursor]:
+    def cursors(self) -> Reversible[Cursor]:
         raise NotImplementedError()
 
     @property
-    def start(self) -> cursor.Cursor:
+    def start(self) -> Cursor:
         raise NotImplementedError()
 
     @property
-    def end(self) -> cursor.Cursor:
+    def end(self) -> Cursor:
         raise NotImplementedError()
