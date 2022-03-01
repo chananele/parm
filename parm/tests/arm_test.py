@@ -4,7 +4,7 @@ from parm import parsers
 from parm.transformers.arm import *
 
 
-class ArmParseTest(TestCase):
+class ArmTest(TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.parser = parsers.create_arm_parser()
