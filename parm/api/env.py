@@ -2,11 +2,13 @@ from typing import List
 
 from parm.exceptions import TooManyMatches, NoMatches
 from parm.match_result import MatchResult
+from parm.api.embedded_ns import EmbeddedLocalNS
 
 
 class Env:
     def __init__(self, program):
         self.program = program
+        self._embedded_ns = EmbeddedLocalNS()
 
     def create_cursor(self, ea):
         raise NotImplementedError()

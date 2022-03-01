@@ -12,6 +12,7 @@ env = idapython_create_env()
 cursor = env.create_cursor(0x1000)
 result = env.match("""
     ldr @:reg, [r1]
+    mov r0, #5
 """, cursor=cursor)
 print(f'Reg: {result["reg"]}')
 
