@@ -1,7 +1,7 @@
 from typing import Iterator
 
-from parm.exceptions import PatternMismatchException, TooManyMatches, NoMatches
-from parm.match_result import MatchResult
+from parm.api.exceptions import PatternMismatchException, TooManyMatches, NoMatches
+from parm.api.match_result import MatchResult
 
 
 def find_all(pattern, cursors) -> Iterator[MatchResult]:
