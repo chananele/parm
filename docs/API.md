@@ -121,6 +121,9 @@ match = prg.create_cursor(0).match("""
     
     % var result_reg
     % match [all] {
+        // If not all BLs to `reset_logic_impl` immediately store
+        // R0 in the same register after returning, the entire 
+        // pattern match will fail.
         MOV @:result_reg, R0
     }
 """)
