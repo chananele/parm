@@ -1,5 +1,3 @@
-from contextlib import contextmanager
-
 from parm.api.exceptions import ExpectFailure
 from parm.api.embedded_ns import EmbeddedLocalNS
 
@@ -10,10 +8,18 @@ def expect(cond):
 
 
 class Env:
-    def __init__(self):
-        self._uni_ns = EmbeddedLocalNS()
-        self._multi_ns = EmbeddedLocalNS()
-        self._add_default_injections()
+    def __init__(self, uni_ns, multi_ns):
+        self._uni_ns = uni_ns  # type: EmbeddedLocalNS
+        self._multi_ns = multi_ns  # type: EmbeddedLocalNS
+
+    @classmethod
+    def create_default_env(cls):
+        env = cls(EmbeddedLocalNS(), EmbeddedLocalNS())
+        env._add_default_injections()
+        return env
+
+    def clone(self):
+        return Env(self._uni_ns.clone(), self._multi_ns.clone())
 
     def add_uni_magic(self, name, callback, *args, **kwargs):
         self._uni_ns.add_magic(name, callback, *args, **kwargs)
@@ -44,15 +50,13 @@ class Env:
     def _add_default_injections(self):
         self.add_common_var('expect', expect)
 
-    @contextmanager
-    def scoped_add_uni_vars(self, **kwargs):
-        with self._uni_ns.scoped_add_vars(**kwargs):
-            yield
+    def add_uni_vars(self, **kwargs):
+        for k, v in kwargs.items():
+            self.add_uni_var(k, v)
 
-    @contextmanager
-    def scoped_add_multi_vars(self, **kwargs):
-        with self._multi_ns.scoped_add_vars(**kwargs):
-            yield
+    def add_multi_vars(self, **kwargs):
+        for k, v in kwargs.items():
+            self.add_multi_var(k, v)
 
     def run_uni_code(self, code):
         return self._uni_ns.evaluate(code)
