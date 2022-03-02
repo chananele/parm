@@ -12,7 +12,7 @@ prg = idapython_create_program()
 
 # Match a pattern at a specified address
 cursor = prg.create_cursor(0x1000)
-result = cursor.match_single("""
+result = cursor.match("""
     ldr @:reg, [r1]
     mov r0, #5
 """)
@@ -43,6 +43,9 @@ As mentioned, although it may not look it, the code patterns are in fact
 pure python code.
 Code patterns are called from the current matching context, and must
 return either a cursor or an iterator of cursors.
+If a code pattern returns `None`, it is treated as though it returned
+its input.
+
 Aside from that, code patterns may do anything - they are just regular 
 python code!
 For example, a code pattern may also modify the current match context,
@@ -51,12 +54,12 @@ by adding matches.
 from parm.envs.ida import idapython_create_program
 prg = idapython_create_program()
 
-syscalls = prg.find_symbol('generic_syscall_impl').match("""
+match = prg.find_symbol('func_impl').match("""
     !xrefs_to
     !fn_start
-caller:
+func:
 """)
-print('Syscalls:', [m['caller'] for m in syscalls])
+print('func:', match['func'])
 ```
 In the above example, a two code patterns where used, each one using a
 special object, called a *contextual injection*.
@@ -74,7 +77,10 @@ The *injections* used in the preceding example are:
    cursor currently resides. This *injection* is also provided by the 
    `IDAProgram`, using IDA functionality.
 
-#### Nested Patterns
+
+There is another type of code pattern, called a *coalesced code pattern*.  
+*Coalesced code patterns* are called using the `$code_pattern` syntax.
+
 Sometimes a pattern cannot be described using the simple linear flow
 given in the preceding examples.
 
@@ -84,30 +90,66 @@ With the previously shown syntax, this is not possible.
 Consecutive lines only filter out potential matches, until the end
 of the pattern is reached or no more cursors are left.
 
-It is for this purpose that the *match block* syntax is provided.
+This is where *coalesced code patterns* come into play.
 
-A *match block* is a pattern that is matched against all current 
-cursors. The behavior of a *match block* changes, depending on its type.
+The difference between regular code patterns and coalesced code patterns 
+is that regular code patterns are called for each cursor at the current 
+line, whereas coalesced patterns are called once with all the cursors at
+the current line.
 
-The syntax for a *match block* is as follows:
+An example usage of a coalesced code pattern is given below:
+```python
+from parm.envs.ida import idapython_create_program
+prg = idapython_create_program()
+
+match = prg.find_symbol('func_impl').match("""
+    !xrefs_to
+    $expect(len(cursors) == 2)
+    !fn_start
+func:
+""")
 ```
-% match <name> [<type>] {
+
+The above example is almost identical to the one above it, except for
+the line `$expect(len(cursors) == 2)`.
+The previous example would match, so long as all xrefs to `func_impl` 
+belonged to the same function (otherwise there would be a collision 
+in the `func` capture variable).
+This example, additionally, requires that there be exactly two xrefs 
+to `func_impl`.
+
+This example also introduced a new *injection* - the `expect()` function.
+This *injection* checks a condition, and fails the match if the condition
+evaluates to false.
+
+This also allows for other interesting features, specifically with relation
+to nested patterns, which we will discuss below.
+
+#### Nested Patterns
+
+A nested pattern is defined with the following syntax.
+```
+% pattern <name> {
     pattern...
 }
 ```
 
-The types of possible *match blocks* are:
-* `all` - All cursors **must** match the enclosed pattern.
-* `single` - There **must** be one, and only one cursor that 
-  matches the enclosed pattern.
-* `+` - There **must** be at least one cursor that matches the
-  enclosed pattern, but there may be more.
-* `*` - There **may** be any number of cursors that match the 
-  enclosed pattern, but it is not required to be so.
-* `?` - There **may** be one cursor that matches the enclosed
-  pattern, but there may not be more.
+Nested patterns are commonly used in conjunction with *coalesced code
+patterns*, such as:
+* `match_all(pat)` - Given a pattern (possibly nested), attempts to match
+  all cursors at the current line with the given pattern.  
+  If even a single cursor does not match, the entire match fails.
+* `match_single(pat)` - Given a pattern (possibly nested), attempts to match
+  all cursors at the current line with the given pattern.  
+  One, and only one cursor may match the pattern, otherwise that entire 
+  match fails.
+* `match_any(pat)` - Given a pattern (possibly nested), attempts to match
+  all cursors at the current line with the given pattern.  
+  Any number of matches may succeed, including zero.
+* `match_some(pat)` - Like `match_any`, but the number of matches must be
+  greater than zero.
 
-An example of an `[all]` type nested match:
+An example using a nested match along with `$match_all`:
 ```python
 from parm.envs.ida import idapython_create_program
 prg = idapython_create_program()
@@ -118,13 +160,14 @@ match = prg.create_cursor(0).match("""
     !xrefs_to
     BL  @:reset_logic  // Filter out any jumps (as opposed to calls) 
     
-    % match reg_saves [all] {
+    %pattern p {
         MOV @:reg, R0
     }
+    
+    $match_all(p, 'reg_saves')
 """)
-for m in match:
-    for s in m.subs['reg_saves']:
-        print(s['reg']) 
+for s in match.subs['reg_saves']:
+    print(s['reg'])
 ```
 The above example will only match if all calls to `reset_logic` 
 (the function called at the reset vector) are followed by storing
@@ -132,33 +175,28 @@ the result (the `R0` register) in a register.
 If a single call to the reset vector does not meat this requirement,
 the entire match will fail.
 
-The above example also showed how you can access the results of 
-a nested pattern match.
-If multiple matches are allowed (`[all]`, `[*]`, `[+]`), the 
-results must be accessed via the `subs` property. If at most 
-one match is permitted (`[single]`, `[?]`), the results must
-be accessed via the `sub` property.
-
 You may have also noticed a new *injection* - The `jump_target` injection.
 This *injection* moves the cursor to the target of the branch to which 
 the cursor currently points.
 
-Another example is given, demonstrating a `[single]` type nested pattern:
+Below, another example is given, using a nested match along
+with `$match_single`:
 ```python
 from parm.envs.ida import idapython_create_program
 prg = idapython_create_program()
 
-match = prg.create_cursor(0).match_single("""
+match = prg.create_cursor(0).match("""
     B   @:reset_logic
     !jump_target
     !xrefs_to
     BL  @:reset_logic  // Filter out any jumps (as opposed to calls) 
     
-    % match [single] {
+    %pattern p {
         MOV R12, R0
         ADR R0, @:storage
         STR R12, R0
     }
+    $match_single(p)
 """)
 s = match.sub[0]
 print(s['storage'])
@@ -196,20 +234,23 @@ This is demonstrated in the following example:
 from parm.envs.ida import idapython_create_program
 prg = idapython_create_program()
 
-match = prg.create_cursor(0).match_single("""
+match = prg.create_cursor(0).match("""
     B   @:reset_logic
     !jump_target
+    
     !xrefs_to
     BL  @:reset_logic  // Filter out any jumps (as opposed to calls) 
     
-    % var result_reg
-    % match [+] {
+    %var result_reg
+    %pattern p {
         // If not all BLs to `reset_logic_impl` immediately store
         // R0 in the same register after returning, the entire 
         // pattern match will fail.
         MOV @:result_reg, R0
         LDR @:other_reg, R5
     }
+    
+    $match_some(p)
 """)
 print(match['result_reg'])
 s = match.subs[0]

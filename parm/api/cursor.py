@@ -11,10 +11,7 @@ class Cursor:
     def address(self):
         raise NotImplementedError()
 
-    def match(self, pattern) -> Iterator[MatchResult]:
-        raise NotImplementedError()
-
-    def match_single(self, pattern) -> MatchResult:
+    def match(self, pattern) -> MatchResult:
         raise NotImplementedError()
 
     def next(self):
