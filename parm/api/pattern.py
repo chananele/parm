@@ -12,17 +12,62 @@ class LinePattern:
 
 
 class LineUniPattern(LinePattern):
+
+    _pre_run_hooks = []
+
     def __init__(self, env, code):
         self.env = env
         self.code = code
 
+    @classmethod
+    def add_pre_run_hook(cls, callback):
+        cls._pre_run_hooks.append(callback)
+
+    @staticmethod
+    def _add_basic_vars(env: Env, cursor: Cursor, match_result: MatchResult):
+        env.add_uni_vars(cursor=cursor)
+        env.add_uni_vars(result=match_result)
+
+    @staticmethod
+    def _add_skipping_magics(env: Env, cursor: Cursor, match_result: MatchResult):
+        env.add_uni_magic('next', lambda: cursor.next())
+        env.add_uni_magic('prev', lambda: cursor.prev())
+
+        def skip(count):
+            c = cursor
+            for _ in range(count):
+                c = c.next()
+            return c
+        env.add_uni_vars(skip=skip)
+
+        def skip_up_to(count):
+            c = cursor
+            for _ in range(count):
+                c = c.next()
+                yield c
+        env.add_uni_vars(skip_up_to=skip_up_to)
+
+    def _exec_pre_run_hooks(self, env: Env, cursor: Cursor, match_result: MatchResult):
+        for hook in self._pre_run_hooks:
+            hook(env, cursor, match_result)
+
+    def _prepare_uni_code_env(self, cursor: Cursor, match_result: MatchResult):
+        env = self.env.clone()  # We clone so as not to modify the global environment
+        self._exec_pre_run_hooks(env, cursor, match_result)
+        return env
+
     def match(self, cursors: Iterator[Cursor], match_result: MatchResult) -> Iterator[Cursor]:
         for c in cursors:
-            with self.env.scoped_add_uni_vars(cursor=c, results=match_result):
-                result = self.env.run_uni_code(self.code)
+            env = self._prepare_uni_code_env(c, match_result)
+            result = env.run_uni_code(self.code)
             if result is None:
                 result = [c]
             yield from result
+
+    _pre_run_hooks.extend([
+        _add_basic_vars,
+        _add_skipping_magics,
+    ])
 
 
 class LineMultiPattern(LinePattern):

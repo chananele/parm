@@ -22,3 +22,10 @@ class Cursor:
         :rtype: Cursor
         """
         raise NotImplementedError()
+
+    def prev(self):
+        """
+
+        :rtype: Cursor
+        """
+        raise NotImplementedError()

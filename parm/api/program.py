@@ -6,8 +6,19 @@ from parm.api.common import find_all, find_first, find_single
 
 
 class Program:
+
+    _post_create_hooks = []
+
     def __init__(self, env: Env):
         self.env = env
+
+    @classmethod
+    def add_post_create_hook(cls, hook):
+        cls._post_create_hooks.append(hook)
+
+    def _run_post_create_hooks(self):
+        for hook in self._post_create_hooks:
+            hook(self)
 
     def find_all(self, pattern):
         find_all(pattern, cursors=self.cursors)
