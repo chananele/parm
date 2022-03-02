@@ -12,7 +12,7 @@ prg = idapython_create_program()
 
 # Match a pattern at a specified address
 cursor = prg.create_cursor(0x1000)
-result = cursor.match("""
+result = cursor.match_single("""
     ldr @:reg, [r1]
     mov r0, #5
 """)
@@ -122,8 +122,9 @@ match = prg.create_cursor(0).match("""
         MOV @:reg, R0
     }
 """)
-for m in match.subs['reg_saves']:
-    print(m['reg']) 
+for m in match:
+    for s in m.subs['reg_saves']:
+        print(s['reg']) 
 ```
 The above example will only match if all calls to `reset_logic` 
 (the function called at the reset vector) are followed by storing
@@ -147,7 +148,7 @@ Another example is given, demonstrating a `[single]` type nested pattern:
 from parm.envs.ida import idapython_create_program
 prg = idapython_create_program()
 
-match = prg.create_cursor(0).match("""
+match = prg.create_cursor(0).match_single("""
     B   @:reset_logic
     !jump_target
     !xrefs_to
@@ -195,7 +196,7 @@ This is demonstrated in the following example:
 from parm.envs.ida import idapython_create_program
 prg = idapython_create_program()
 
-match = prg.create_cursor(0).match("""
+match = prg.create_cursor(0).match_single("""
     B   @:reset_logic
     !jump_target
     !xrefs_to
