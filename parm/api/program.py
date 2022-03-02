@@ -35,6 +35,9 @@ class Program:
     def create_cursor(self, address) -> Cursor:
         raise NotImplementedError()
 
+    def create_pattern(self, pattern):
+        raise NotImplementedError()
+
     def find_symbol(self, symbol_name) -> Cursor:
         raise NotImplementedError()
 

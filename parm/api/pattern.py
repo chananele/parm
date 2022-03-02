@@ -13,15 +13,21 @@ class LinePattern:
 
 class LineUniPattern(LinePattern):
 
-    _pre_run_hooks = []
-
     def __init__(self, env, code):
         self.env = env
         self.code = code
 
-    @classmethod
-    def add_pre_run_hook(cls, callback):
-        cls._pre_run_hooks.append(callback)
+        self._pre_run_hooks = []
+        self._add_default_pre_run_hooks()
+
+    def _add_default_pre_run_hooks(self):
+        self._pre_run_hooks.extend([
+            self._add_basic_vars,
+            self._add_skipping_magics,
+        ])
+
+    def add_pre_run_hook(self, callback):
+        self._pre_run_hooks.append(callback)
 
     @staticmethod
     def _add_basic_vars(env: Env, cursor: Cursor, match_result: MatchResult):
@@ -29,7 +35,7 @@ class LineUniPattern(LinePattern):
         env.add_uni_vars(result=match_result)
 
     @staticmethod
-    def _add_skipping_magics(env: Env, cursor: Cursor, match_result: MatchResult):
+    def _add_skipping_magics(env: Env, cursor: Cursor, _: MatchResult):
         env.add_uni_magic('next', lambda: cursor.next())
         env.add_uni_magic('prev', lambda: cursor.prev())
 
@@ -64,23 +70,22 @@ class LineUniPattern(LinePattern):
                 result = [c]
             yield from result
 
-    _pre_run_hooks.extend([
-        _add_basic_vars,
-        _add_skipping_magics,
-    ])
-
 
 class LineMultiPattern(LinePattern):
-
-    _pre_run_hooks = []
-
     def __init__(self, env, code):
         self.env = env
         self.code = code
 
-    @classmethod
-    def add_pre_run_hook(cls, callback):
-        cls._pre_run_hooks.append(callback)
+        self._pre_run_hooks = []
+
+    def _add_default_pre_run_hooks(self):
+        self._pre_run_hooks.extend([
+            self._add_basic_vars,
+            self._add_pattern_match_cbs,
+        ])
+
+    def add_pre_run_hook(self, callback):
+        self._pre_run_hooks.append(callback)
 
     def _exec_pre_run_hooks(self, env: Env, cursors: Iterator[Cursor], match_result: MatchResult):
         for hook in self._pre_run_hooks:
@@ -140,11 +145,6 @@ class LineMultiPattern(LinePattern):
         if result is None:
             result = cursors
         yield from result
-
-    _pre_run_hooks.extend([
-        _add_basic_vars,
-        _add_pattern_match_cbs,
-    ])
 
 
 class LineAssemblyPattern(LinePattern):
