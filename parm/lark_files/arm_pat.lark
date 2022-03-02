@@ -26,10 +26,6 @@ shift_pat: shift_op_pat "#" shift_val_pat
 
 shifted_reg_pat: reg_pat ["," shift_pat]
 
-_mem_single_pat_1: "[" wildcard_m "]"
-                 | "[" reg_pat ["," immediate_pat] "]"
-                 | "[" reg_pat "," immediate_pat "]" ("!" | wildcard_m)
-
 pre_indexed: "!"
 maybe_pre_indexed: wildcard_o
 pre_index_pat: pre_indexed
