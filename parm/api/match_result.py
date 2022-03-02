@@ -1,24 +1,24 @@
-from typing import List
+from typing import Mapping, Union, List
+
+_IndexType = Union[int, str]
 
 
 class MatchResult:
-    def sub_matches(self, name):
-        """
 
-        :param str name:
-        :return:
-        :rtype: List[MatchResult]
+    @property
+    def subs(self):
+        """
+        :rtype: Mapping[_IndexType, List[MatchResult]]
         """
         raise NotImplementedError()
 
-    def sub_match(self, name):
+    @property
+    def sub(self):
         """
-
-        :param str name:
-        :return:
-        :rtype: MatchResult
+        :rtype: Mapping[_IndexType, MatchResult]
         """
         raise NotImplementedError()
 
     def __getitem__(self, item):
         raise NotImplementedError()
+

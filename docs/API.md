@@ -33,7 +33,7 @@ print('Funcs:', [m['func_start'] for m in results])
 # In this example, `xrefs` returns an iterator over all the xrefs to the
 # location of the current cursor.
 # The `xrefs` extension here is implemented over the same IDA functionality.
-# The `func_start` extension returns a cursor pointing to the start of the 
+# The `fn_start` extension returns a cursor pointing to the start of the 
 # function in which the cursor currently resides.
 # This too is implemented using the provided IDA functionality.
 
@@ -41,7 +41,7 @@ print('Funcs:', [m['func_start'] for m in results])
 # their own extensions, allowing for a very flexible plugin interface.
 syscalls = prg.find_symbol('generic_syscall_impl').match("""
     !xrefs
-    !func_start
+    !fn_start
 caller:
 """)
 print('Syscalls:', [m['caller'] for m in syscalls])
@@ -63,7 +63,8 @@ match = prg.create_cursor(0).match("""
     // Match the contained pattern - if one of them does not,
     // the entire match will fail.
     // Providing a name for the match (in this case "reg_saves")
-    // is optional but required in order to access captured values.
+    // is optional.
+    // Match results can also be retrieved by index.
     % match reg_saves [all] {
         BL  @:real_logic  // Check that all xrefs are BL instructions
         MOV @:reg, R0
@@ -74,6 +75,7 @@ match = prg.create_cursor(0).match("""
     % match [single] {
         BL  @:real_logic
         MOV R12, R0
+        MOV R0, #@:imm
     }
     
     // Setting "[any]" means that at least one xref must match the
@@ -92,10 +94,17 @@ match = prg.create_cursor(0).match("""
     }
 """)
 print(match['real_logic'])
-rsm = match.sub_matches('reg_saves')
-assert isinstance(rsm, list)
+rsm = match.subs['reg_saves']
 for m in rsm:
     print(m['reg'])
+
+# The match result at index 1 was marked as "[single]", so it
+# Should be accessed with `sub`, not `subs`.
+second = match.sub[1]
+print(second['imm'])
+
+# Nested match results inherit their parents' matches.
+assert second['real_logic'] == match['real_logic']
 
 # You may have noticed that captured values have scopes - for 
 # examples, the "reg" capture was in the "reg_saves" scope, while
