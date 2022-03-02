@@ -8,6 +8,10 @@ class Cursor:
         self.env = env
 
     @property
+    def line(self):
+        raise NotImplementedError()
+
+    @property
     def address(self):
         raise NotImplementedError()
 

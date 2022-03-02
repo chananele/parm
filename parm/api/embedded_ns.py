@@ -49,19 +49,19 @@ class EmbeddedLocalNS(Mapping):
             vals = {}
 
         self._magics = magics
-        self._vals = vals
+        self._vars = vals
 
     def __len__(self):
-        return len(self._magics) + len(self._vals)
+        return len(self._magics) + len(self._vars)
 
     def __iter__(self):
-        for v in self._vals:
+        for v in self._vars:
             yield v
         for m in self._magics:
             yield m()
 
     def clone(self):
-        return EmbeddedLocalNS(self._magics.copy(), self._vals.copy())
+        return EmbeddedLocalNS(self._magics.copy(), self._vars.copy())
 
     def execute(self, code, _globals=None):
         exec(code, _globals, self.clone())
@@ -69,22 +69,48 @@ class EmbeddedLocalNS(Mapping):
     def evaluate(self, code, _globals=None):
         return eval(code, _globals, self.clone())
 
+    def set_var(self, key, value):
+        if key in self._magics:
+            raise KeyError(f'Magic "{key}" already exists!')
+        self._vars[key] = value
+
+    def add_var(self, key, value):
+        if key in self._vars:
+            raise KeyError(f'Var "{key}" already exists!')
+        self.set_var(key, value)
+
     def set_magic(self, key, callback, *args, **kwargs):
-        assert key not in self._vals
+        if key in self._vars:
+            raise KeyError(f'Var "{key}" already exists!')
         self._magics[key] = Magic(callback, *args, **kwargs)
 
     def add_magic(self, key, callback, *args, **kwargs):
         if key in self._magics:
-            raise ValueError(f'Magic "{key}" already exists!')
+            raise KeyError(f'Magic "{key}" already exists!')
         self.set_magic(key, callback, *args, **kwargs)
+
+    def del_var(self, key):
+        del self._vars[key]
+
+    def del_magic(self, key):
+        del self._magics[key]
+
+    def del_key(self, key):
+        try:
+            self.del_var(key)
+        except KeyError:
+            self.del_magic(key)
 
     def __getitem__(self, item):
         try:
-            return self._vals[item]
+            return self._vars[item]
         except KeyError:
             return self._magics[item]()
 
     def __setitem__(self, key, value):
         if key in self._magics:
             raise SyntaxError(f'The name "{key}" is reserved!')
-        self._vals[key] = value
+        self._vars[key] = value
+
+    def __contains__(self, item):
+        return item in self._vars or item in self._magics

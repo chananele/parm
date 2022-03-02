@@ -9,3 +9,7 @@ class TooManyMatches(PatternMismatchException):
 
 class NoMatches(PatternMismatchException):
     pass
+
+
+class ExpectFailure(PatternMismatchException):
+    pass
