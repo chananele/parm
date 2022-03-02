@@ -1,5 +1,3 @@
-from typing import Iterator
-
 from parm.api.match_result import MatchResult
 
 
@@ -15,7 +13,7 @@ class Cursor:
     def address(self):
         raise NotImplementedError()
 
-    def match(self, pattern) -> MatchResult:
+    def match(self, pattern, match_results: MatchResult = None) -> MatchResult:
         raise NotImplementedError()
 
     def next(self):

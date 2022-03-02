@@ -28,6 +28,7 @@
 """
 
 from collections.abc import Mapping
+from contextlib import contextmanager, ExitStack
 
 
 class Magic:
@@ -114,3 +115,26 @@ class EmbeddedLocalNS(Mapping):
 
     def __contains__(self, item):
         return item in self._vars or item in self._magics
+
+    @contextmanager
+    def scoped_add_var(self, key, value):
+        self.add_var(key, value)
+        try:
+            yield
+        finally:
+            self.del_var(key)
+
+    @contextmanager
+    def scoped_add_magic(self, name, callback, *args, **kwargs):
+        self.add_magic(name, callback, *args, **kwargs)
+        try:
+            yield
+        finally:
+            self.del_magic(name)
+
+    @contextmanager
+    def scoped_add_vars(self, **kwargs):
+        with ExitStack() as es:
+            for k, v in kwargs.items():
+                es.enter_context(self.scoped_add_var(k, v))
+            yield

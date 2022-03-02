@@ -26,7 +26,7 @@ def find_single(pattern, cursors) -> MatchResult:
     result = list(find_all(pattern, cursors))
     count = len(result)
     if count > 1:
-        raise TooManyMatches(result)
+        raise TooManyMatches()
     if count == 0:
         raise NoMatches()
     return result[0]

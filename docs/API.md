@@ -78,8 +78,8 @@ The *injections* used in the preceding example are:
    `IDAProgram`, using IDA functionality.
 
 
-There is another type of code pattern, called a *coalesced code pattern*.  
-*Coalesced code patterns* are called using the `$code_pattern` syntax.
+There is another type of code pattern, called a *code multi-pattern*.  
+*Code multi-patterns* are called using the `$code_pattern` syntax.
 
 Sometimes a pattern cannot be described using the simple linear flow
 given in the preceding examples.
@@ -90,14 +90,14 @@ With the previously shown syntax, this is not possible.
 Consecutive lines only filter out potential matches, until the end
 of the pattern is reached or no more cursors are left.
 
-This is where *coalesced code patterns* come into play.
+This is where *code multi-patterns* come into play.
 
-The difference between regular code patterns and coalesced code patterns 
+The difference between regular code patterns and code multi-patterns 
 is that regular code patterns are called for each cursor at the current 
-line, whereas coalesced patterns are called once with all the cursors at
+line, whereas multi-patterns are called once with all the cursors at
 the current line.
 
-An example usage of a coalesced code pattern is given below:
+An example usage of a code multi-pattern is given below:
 ```python
 from parm.envs.ida import idapython_create_program
 prg = idapython_create_program()
@@ -134,8 +134,8 @@ A nested pattern is defined with the following syntax.
 }
 ```
 
-Nested patterns are commonly used in conjunction with *coalesced code
-patterns*, such as:
+Nested patterns are commonly used in conjunction with 
+*code multi-patterns*, such as:
 * `match_all(pat)` - Given a pattern (possibly nested), attempts to match
   all cursors at the current line with the given pattern.  
   If even a single cursor does not match, the entire match fails.

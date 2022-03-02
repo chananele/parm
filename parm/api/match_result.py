@@ -1,4 +1,4 @@
-from typing import Mapping, Union, List
+from typing import Mapping, Union, List, ContextManager
 from contextlib import contextmanager
 
 from parm.api.exceptions import CaptureCollision, PatternMismatchException
@@ -41,7 +41,7 @@ class UndefinedVar(Exception):
 
 class MultiMatchResult:
     def __init__(self, parent=None):
-        self._scopes = []
+        self._scopes = []  # type: List[MatchResult]
         self._parent = parent  # type: MatchResult
 
     def __iter__(self):
@@ -61,6 +61,10 @@ class MultiMatchResult:
             scope.invalidate()
             raise
 
+    def invalidate(self):
+        for s in self._scopes:
+            s.invalidate()
+
 
 class MatchResult:
     def __init__(self, parent=None):
@@ -74,6 +78,8 @@ class MatchResult:
         self._sub = TrackingDict()
 
     def invalidate(self):
+        for scope in self._scopes.values():
+            scope.invalidate()  # This may invalidate multiple times, should be OK...
         for var in self._captured_vars:
             var.scope[var.name] = var
 
@@ -126,6 +132,7 @@ class MatchResult:
         try:
             yield ix
         except PatternMismatchException:
+            scope.invalidate()
             if name is not None:
                 del self._scopes[name]
             del self._scopes[ix]
@@ -160,12 +167,11 @@ class MatchResult:
                 with self._add_sub(ix, name, scope):
                     yield scope
         except PatternMismatchException:
-            scope.invalidate()
             del scope
             raise
 
     @contextmanager
-    def new_multi_scope(self, name=None):
+    def new_multi_scope(self, name=None) -> ContextManager[MultiMatchResult]:
         scope = MultiMatchResult(self)
         try:
             with self.add_scope(scope, name) as ix:

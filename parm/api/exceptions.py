@@ -3,8 +3,7 @@ class PatternMismatchException(Exception):
 
 
 class TooManyMatches(PatternMismatchException):
-    def __init__(self, matches):
-        self.matches = matches
+    pass
 
 
 class NoMatches(PatternMismatchException):
