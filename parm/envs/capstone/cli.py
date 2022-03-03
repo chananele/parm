@@ -3,6 +3,7 @@ from pathlib import Path
 
 import click
 from parm.envs.capstone import disassemble_binary_file
+from parm.resources import get_asciiart
 
 SUPPORTED_BUILDS = {
     ("arm", "32"),
@@ -24,6 +25,8 @@ SUPPORTED_BUILDS = {
 @click.option("--debug", "-d", is_flag=True, default=False)
 @click.pass_context
 def cli(ctx, arch, mode, output, debug):
+    click.echo(get_asciiart(color=True), color=True)
+
     if (arch, mode) not in SUPPORTED_BUILDS:
         click.echo(
             f"Got ({arch}, {mode}) while currently only supporting: {SUPPORTED_BUILDS}",
