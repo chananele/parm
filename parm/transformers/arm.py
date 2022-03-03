@@ -342,6 +342,10 @@ class ArmTransformer(Transformer):
         dst, reg_list = parts
         return [dst, MemMulti(reg_list)]
 
+    def stack_mem_multi_operand(self, parts):
+        (reg_list, ) = parts
+        return [MemMulti(reg_list)]
+
     def address(self, parts):
         (num, ) = parts
         assert isinstance(num, Token)

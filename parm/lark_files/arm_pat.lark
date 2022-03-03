@@ -5,6 +5,9 @@ wildcard_s: "@" [":" CAPTURE]
 wildcard_o: "?" [":" CAPTURE]
 
 
+identifier: CAPTURE
+
+
 immediate_pat: "#" wildcard_s -> immediate_wildcard
              | "#" NUM -> immediate_value
 
@@ -14,7 +17,7 @@ address_pat: NUM -> address
 
 
 reg_pat: reg
-       | wildcard_s -> reg_wildcard
+       | wildcard_s
 
 shift_op_pat: wildcard_s -> shift_op_wildcard
             | SHIFT_OP -> shift_op
@@ -51,23 +54,41 @@ _mem_multi_pat_1: (reg_pat | reg_range_pat | wildcard_m)
 _mem_multi_pat_2: (reg_pat | reg_range_pat) ["," _mem_multi_pat_1]
 mem_multi_pat: "{" _mem_multi_pat_1 ("," _mem_multi_pat_2)* "}"
 
-operands: reg_pat ["," shifted_reg_pat] ["," wildcard_m]
-        | reg_pat "," mem_single_pat
-        | reg_pat "," mem_multi_pat
+operands_pat: reg_pat ["," shifted_reg_pat] ["," wildcard_m]
+            | reg_pat "," mem_single_pat
+            | reg_pat "," mem_multi_pat
 
 OPCODE_WILDCARD: "*"
 
 opcode_wildcard: OPCODE_WILDCARD [":" CAPTURE]
 
-instruction_pat: opcode_wildcard _POST_OPCODE operands
+instruction_pat: opcode_wildcard _POST_OPCODE operands_pat -> wildcard_op
+               | OPCODE_MOV _POST_OPCODE reg_pat "," shifted_reg_pat -> mov_op
 
+_COMMENT: /\/\/[^\n]*/
 
-line_pat: [address_pat ":"] instruction_pat
+ONE_LINER: /[^\n]+/
+
+special_command: "pattern" identifier "{" "\n" block_pat "\n" "}" -> pattern_def
+               | "var" identifier -> var_def
+
+command_pat: instruction_pat [_COMMENT] -> instruction_line
+           | "!" ONE_LINER -> uni_code
+           | "$" ONE_LINER -> multi_code
+           | "%" special_command
+
+line_pat: command_pat -> lone_command
+        | address_pat ":" [_COMMENT] -> lone_address
+        | address_pat ":" command_pat -> addressed_command
+
+block_pat: line_pat ("\n"+ line_pat)* "\n"*
 
 %import .arm.NUM
 %import .arm.SHIFT_OP
 %import .arm.SHIFT_VAL
 %import .arm._POST_OPCODE
+
+%import .arm.OPCODE_MOV
 
 %import .arm.reg
 

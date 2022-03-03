@@ -28,7 +28,6 @@
 """
 
 from collections.abc import Mapping
-from contextlib import contextmanager, ExitStack
 
 
 class Magic:
@@ -42,33 +41,43 @@ class Magic:
 
 
 class EmbeddedLocalNS(Mapping):
-    def __init__(self, magics=None, vals=None):
-        if magics is None:
-            magics = {}
+    def __init__(self, _magics=None, _vals=None, _globals=None):
+        if _magics is None:
+            _magics = {}
 
-        if vals is None:
-            vals = {}
+        if _vals is None:
+            _vals = {}
 
-        self._magics = magics
-        self._vars = vals
+        if _globals is None:
+            _globals = {}
+
+        self._magics = _magics
+        self._vars = _vals
+        self._globals = _globals
 
     def __len__(self):
         return len(self._magics) + len(self._vars)
 
     def __iter__(self):
-        for v in self._vars:
-            yield v
-        for m in self._magics:
-            yield m()
+        yield from self._vars
+        yield from self._magics
 
     def clone(self):
-        return EmbeddedLocalNS(self._magics.copy(), self._vars.copy())
+        return EmbeddedLocalNS(self._magics.copy(), self._vars.copy(), self._globals.copy())
 
-    def execute(self, code, _globals=None):
-        exec(code, _globals, self.clone())
+    def execute(self, code):
+        exec(code, self._globals, self)
 
-    def evaluate(self, code, _globals=None):
-        return eval(code, _globals, self.clone())
+    def evaluate(self, code):
+        return eval(code, self._globals, self)
+
+    def set_global(self, key, value):
+        self._globals[key] = value
+
+    def add_global(self, key, value):
+        if key in self._globals:
+            raise KeyError(f'Global "{key}" already exists!')
+        self.set_global(key, value)
 
     def set_var(self, key, value):
         if key in self._magics:
@@ -115,26 +124,3 @@ class EmbeddedLocalNS(Mapping):
 
     def __contains__(self, item):
         return item in self._vars or item in self._magics
-
-    @contextmanager
-    def scoped_add_var(self, key, value):
-        self.add_var(key, value)
-        try:
-            yield
-        finally:
-            self.del_var(key)
-
-    @contextmanager
-    def scoped_add_magic(self, name, callback, *args, **kwargs):
-        self.add_magic(name, callback, *args, **kwargs)
-        try:
-            yield
-        finally:
-            self.del_magic(name)
-
-    @contextmanager
-    def scoped_add_vars(self, **kwargs):
-        with ExitStack() as es:
-            for k, v in kwargs.items():
-                es.enter_context(self.scoped_add_var(k, v))
-            yield

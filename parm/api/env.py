@@ -58,6 +58,20 @@ class Env:
         for k, v in kwargs.items():
             self.add_multi_var(k, v)
 
+    def add_uni_global(self, name, value):
+        self._uni_ns.add_global(name, value)
+
+    def add_multi_global(self, name, value):
+        self._multi_ns.add_global(name, value)
+
+    def add_uni_globals(self, **kwargs):
+        for k, v in kwargs.items():
+            self.add_uni_global(k, v)
+
+    def add_multi_globals(self, **kwargs):
+        for k, v in kwargs.items():
+            self.add_multi_global(k, v)
+
     def run_uni_code(self, code):
         return self._uni_ns.evaluate(code)
 

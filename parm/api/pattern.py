@@ -31,8 +31,8 @@ class LineUniPattern(LinePattern):
 
     @staticmethod
     def _add_basic_vars(env: Env, cursor: Cursor, match_result: MatchResult):
-        env.add_uni_vars(cursor=cursor)
-        env.add_uni_vars(result=match_result)
+        env.add_uni_globals(cursor=cursor)
+        env.add_uni_globals(result=match_result)
 
     @staticmethod
     def _add_skipping_magics(env: Env, cursor: Cursor, _: MatchResult):
@@ -93,8 +93,8 @@ class LineMultiPattern(LinePattern):
 
     @staticmethod
     def _add_basic_vars(env: Env, cursors: Iterator[Cursor], match_result: MatchResult):
-        env.add_multi_vars(cursors=cursors)
-        env.add_multi_vars(result=match_result)
+        env.add_multi_globals(cursors=cursors)
+        env.add_multi_globals(result=match_result)
 
     @staticmethod
     def _add_pattern_match_cbs(env: Env, cursors: Iterator[Cursor], match_result: MatchResult):

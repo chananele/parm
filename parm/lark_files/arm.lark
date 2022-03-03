@@ -39,13 +39,14 @@ BASE_OPCODE_MEM_MULTI_HI: "STM" | "LDM"
 MEM_MULTI_SFX_LO: "ia" | "ea"
 MEM_MULTI_SFX_HI: "IA" | "EA"
 
-PSEUDO_OPCODE_MEM_MULTI_LO: "push" | "pop"
-PSEUDO_OPCODE_MEM_MULTI_HI: "PUSH" | "POP"
+STACK_OPCODE_MEM_MULTI_LO: "push" | "pop"
+STACK_OPCODE_MEM_MULTI_HI: "PUSH" | "POP"
 
 OPCODE_MEM_MULTI: BASE_OPCODE_MEM_MULTI_LO [MEM_MULTI_SFX_LO] [CONDITION_LO]
                 | BASE_OPCODE_MEM_MULTI_HI [MEM_MULTI_SFX_HI] [CONDITION_HI]
-                | PSEUDO_OPCODE_MEM_MULTI_LO [CONDITION_LO]
-                | PSEUDO_OPCODE_MEM_MULTI_HI [CONDITION_HI]
+
+OPCODE_STACK_MEM_MULTI: STACK_OPCODE_MEM_MULTI_LO [CONDITION_LO]
+                      | STACK_OPCODE_MEM_MULTI_HI [CONDITION_HI]
 
 OPCODE_MEM_SINGLE: BASE_OPCODE_MEM_SINGLE_LO [CONDITION_LO]
                  | BASE_OPCODE_MEM_SINGLE_HI [CONDITION_HI]
@@ -80,9 +81,11 @@ mem_single_operand: reg "," "[" reg ["," immediate] "]" -> mem_expr_immediate
                   | reg "," "[" reg "]" "," shifted_reg -> mem_expr_reg_post
 
 mem_multi_operand: reg "," "{" reg_list "}"
+stack_mem_multi_operand: "{" reg_list "}"
 
 instruction: OPCODE_MEM_SINGLE _POST_OPCODE mem_single_operand
            | OPCODE_MEM_MULTI _POST_OPCODE mem_multi_operand
+           | OPCODE_STACK_MEM_MULTI _POST_OPCODE stack_mem_multi_operand
            | OPCODE_BRANCH_REL _POST_OPCODE address
            | OPCODE_BRANCH_IND _POST_OPCODE reg
            | OPCODE_MOV _POST_OPCODE mov_operands
