@@ -3,6 +3,27 @@ from lark import Transformer, Token
 from parm.utils import indent
 
 
+class OpcodePat:
+    def __init__(self, name, capture=None):
+        self.name = name
+        self.capture = capture
+
+    def __repr__(self):
+        if self.capture is None:
+            return f'OpcodePat({self.name!r})'
+        return f'OpcodePat({self.name!r}, {self.capture!r})'
+
+    def __str__(self):
+        if self.capture is None:
+            return self.name
+        return f'{self.name}:{self.capture}'
+
+    def __eq__(self, other):
+        if not isinstance(other, OpcodePat):
+            return False
+        return self.name == other.name and self.capture == other.capture
+
+
 class ShiftPat:
     def __init__(self, op, val):
         self.op = op
@@ -62,6 +83,10 @@ class ContainerBase:
         if not isinstance(other, type(self)):
             return False
         return self.value == other.value
+
+
+class CommandPat(ContainerBase):
+    pass
 
 
 class MemOffsetPat(ContainerBase):
@@ -193,7 +218,7 @@ class CodeLine:
         return f'{self.__class__.__name__}({self.code!r})'
 
     def __str__(self):
-        return f'{self.prefix} {self.code}'
+        return f'{self.prefix}{self.code}'
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -240,7 +265,7 @@ class BlockPat:
         for line in self.lines:
             if isinstance(line, AddressPat):
                 line_strs.append(f'{line}:')
-            elif isinstance(line, InstructionPat):
+            elif isinstance(line, CommandPat):
                 line_strs.append(indent(str(line)))
             else:
                 raise TypeError(f'Invalid line of type {type(line)}, {line}')
@@ -271,12 +296,36 @@ class InstructionPat:
 
 
 class ArmPatternTransformer(Transformer):
+    def opcode_wildcard(self, parts):
+        (capture, ) = parts
+        return OpcodePat('*', capture)
+
+    def _opcode_pat(self, parts):
+        pat, capture = parts
+        assert isinstance(pat, Token)
+        return OpcodePat(pat.value, capture)
+
+    approx_mov = _opcode_pat
+    approx_arithmetic = _opcode_pat
+    approx_branch_rel = _opcode_pat
+    approx_branch_ind = _opcode_pat
+
+    def _exact_opcode(self, parts):
+        (pat, ) = parts
+        return OpcodePat(pat)
+
+    exact_mov = _exact_opcode
+    exact_arithmetic = _exact_opcode
+    exact_branch_rel = _exact_opcode
+    exact_branch_ind = _exact_opcode
+
     def instruction_line(self, parts):
         (instruction_pat, ) = parts
-        return instruction_pat
+        return CommandPat(instruction_pat)
 
     def instruction_pat(self, parts):
         opcode, operands = parts
+        assert isinstance(opcode, OpcodePat), opcode
         return InstructionPat(opcode, operands)
 
     def line_address_pat(self, pat):
@@ -304,11 +353,18 @@ class ArmPatternTransformer(Transformer):
 
     def uni_code(self, parts):
         (code, ) = parts
-        return UniCodeLine(code)
+        return CommandPat(UniCodeLine(code))
 
     def multi_code(self, parts):
         (code, ) = parts
-        return MultiCodeLine(code)
+        return CommandPat(MultiCodeLine(code))
+
+    def capture_opt(self, parts):
+        (cap, ) = parts
+        if cap is not None:
+            assert isinstance(cap, Token)
+            cap = cap.value
+        return cap
 
     def operands_pat(self, parts):
         return OperandsPat(parts)
@@ -349,14 +405,6 @@ class ArmPatternTransformer(Transformer):
             capture = capture.value
         return WildcardOptional(capture)
 
-    def opcode_wildcard(self, parts):
-        (wc, capture) = parts
-        assert wc == '*'
-        if capture is not None:
-            assert isinstance(capture, Token)
-            capture = capture.value
-        return WildcardMulti(capture)
-
     def immediate_wildcard(self, parts):
         (wildcard, ) = parts
         assert isinstance(wildcard, WildcardBase)
@@ -370,13 +418,16 @@ class ArmPatternTransformer(Transformer):
     def lone_command(self, parts):
         return parts
 
+    def lone_address(self, parts):
+        return parts
+
     def addressed_command(self, parts):
         return parts
 
     def block_pat(self, line_pats):
         lines = []
         for lp in line_pats:
-            assert isinstance(lp, list), type(lp)
+            assert isinstance(lp, list), lp
             lines.extend(lp)
         return BlockPat(lines)
 

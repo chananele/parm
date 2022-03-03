@@ -39,6 +39,11 @@ def load_arm_pattern_trees(parser):
     yield parser.parse('* r1, [r2, @:X]!')
     yield parser.parse('hello: *:opcode r5, {r2-@, r6, *}')
     yield parser.parse('test: * r1, r2, lsl#@:shift')
+    yield parser.parse("""
+    start:
+        mov r1, @:reg
+        !fn_start
+    """)
 
 
 def test_arm_patterns():

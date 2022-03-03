@@ -1,10 +1,18 @@
 from lark import Lark
 
 
-def create_parser(path, rel_to, start, postlex=None, parser='earley', lexer=None):
+def create_parser(path, rel_to, start, postlex=None, parser='earley', lexer=None, **kwargs):
     if parser == 'earley' and lexer is None:
         lexer = 'dynamic_complete'
-    return Lark.open(path, rel_to=rel_to, parser=parser, postlex=postlex, start=start, lexer=lexer)
+
+    if postlex is not None:
+        kwargs['postlex'] = postlex
+    if parser is not None:
+        kwargs['parser'] = parser
+    if lexer is not None:
+        kwargs['lexer'] = lexer
+
+    return Lark.open(path, rel_to=rel_to, start=start, **kwargs)
 
 
 def create_arm_parser():

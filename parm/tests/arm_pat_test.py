@@ -9,3 +9,7 @@ class ArmPatternTest(TestCase):
         super().__init__(*args, **kwargs)
         self.parser = parsers.create_arm_pattern_parser()
         self.transformer = ArmPatternTransformer()
+
+    def _pt(self, *args, **kwargs):
+        parsed = self.parser.parse(*args, **kwargs)
+        return self.transformer.transform(parsed)
