@@ -21,8 +21,9 @@ SUPPORTED_BUILDS = {
               type=click.File('w'),
               default=sys.stdout,
               help="Output file (stdout by default)")
+@click.option("--debug", "-d", is_flag=True, default=False)
 @click.pass_context
-def cli(ctx, arch, mode, output):
+def cli(ctx, arch, mode, output, debug):
     if (arch, mode) not in SUPPORTED_BUILDS:
         click.echo(
             f"Got ({arch}, {mode}) while currently only supporting: {SUPPORTED_BUILDS}",
@@ -32,6 +33,7 @@ def cli(ctx, arch, mode, output):
     ctx.obj['arch'] = arch
     ctx.obj['mode'] = mode
     ctx.obj['output'] = output
+    ctx.obj['DEBUG'] = debug
 
 
 @cli.command()
