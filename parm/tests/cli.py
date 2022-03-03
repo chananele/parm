@@ -37,6 +37,7 @@ def load_arm_pattern_trees(parser):
     yield parser.parse('0x200: * r1, [r2], #@:val')
     yield parser.parse('* r1, [r2, @:X]!')
     yield parser.parse('hello: *:opcode r5, {r2-@, r6, *}')
+    yield parser.parse('test: * r1, r2, lsl#@:shift')
 
 
 def test_arm_patterns():
@@ -44,8 +45,10 @@ def test_arm_patterns():
     trees = load_arm_pattern_trees(parser)
     transformer = arm_pattern.ArmPatternTransformer()
     for tree in trees:
-        print('----------------------------------c')
         result = transformer.transform(tree)
+        print('----------------------------------')
+        print(repr(result))
+        print('**********************************')
         print(result)
 
 

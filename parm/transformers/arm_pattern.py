@@ -3,6 +3,18 @@ from lark import Transformer, Token
 from parm.utils import indent
 
 
+class ShiftPat:
+    def __init__(self, op, val):
+        self.op = op
+        self.val = val
+
+    def __repr__(self):
+        return f'ShiftPat({self.op!r}, {self.val!r})'
+
+    def __str__(self):
+        return f'{self.op}#{self.val}'
+
+
 class MemSinglePatBase:
     def __init__(self, base, offset=None):
         self.base = base
@@ -378,6 +390,29 @@ class ArmPatternTransformer(Transformer):
     def mem_offset_pat(self, parts):
         (value, ) = parts
         return MemOffsetPat(value)
+
+    def shift_op(self, parts):
+        (op, ) = parts
+        assert isinstance(op, Token)
+        return op.value
+
+    def shift_op_wildcard(self, value):
+        assert isinstance(value, WildcardSingle)
+        return value
+
+    def shift_val(self, parts):
+        (val, ) = parts
+        assert isinstance(val, Token)
+        return val.value
+
+    def shift_val_wildcard(self, parts):
+        (value, ) = parts
+        assert isinstance(value, WildcardSingle), value
+        return value
+
+    def shift_pat(self, parts):
+        op, val = parts
+        return ShiftPat(op, val)
 
     def shifted_reg_pat(self, parts):
         reg_pat, shift_pat = parts
