@@ -1,5 +1,67 @@
 from lark import Transformer, Token
 
+from parm.utils import indent
+
+
+class ContainerBase:
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return str(self.value)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.value!r})'
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self.value == other.value
+
+
+class MemOffsetPat(ContainerBase):
+    pass
+
+
+class ShiftedRegPat:
+    def __init__(self, reg_pat, shift_pat=None):
+        self.reg_pat = reg_pat
+        self.shift_pat = shift_pat
+
+    def __str__(self):
+        if self.shift_pat is None:
+            return str(self.reg_pat)
+        return f'{self.reg_pat}, {self.shift_pat}'
+
+    def __repr__(self):
+        ps = [str(self.reg_pat)]
+        if self.shift_pat is not None:
+            ps.append(str(self.shift_pat))
+        return f'ShiftedRegPat({", ".join(ps)})'
+
+
+class MemMultiPat:
+    def __init__(self, reg_list):
+        self.reg_list = reg_list
+
+    def __repr__(self):
+        return f'MemMultiPat({self.reg_list!r})'
+
+    def __str__(self):
+        return '{{{}}}'.format(', '.join(str(r) for r in self.reg_list))
+
+
+class RegRangePat:
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+
+    def __repr__(self):
+        return f'RegRangePat({self.start!r}, {self.end!r})'
+
+    def __str__(self):
+        return f'{self.start}-{self.end}'
+
 
 class OperandsPat:
     def __init__(self, ops):
@@ -17,31 +79,12 @@ class OperandsPat:
         return self.ops == other.ops
 
 
-class RegPat:
-    def __init__(self, value):
-        self.value = value
-
-    def __repr__(self):
-        return f'RegPat({self.value!r})'
-
-    def __str__(self):
-        return str(self.value)
-
-    def __eq__(self, other):
-        if not isinstance(other, RegPat):
-            return False
-        return self.value == other.value
+class RegPat(ContainerBase):
+    pass
 
 
-class Reg:
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return f'Reg({self.name!r})'
-
-    def __str__(self):
-        return self.name
+class Reg(ContainerBase):
+    pass
 
 
 class WildcardBase:
@@ -121,18 +164,23 @@ class MultiCodeLine(CodeLine):
     prefix = '$'
 
 
-class AddressPat:
+class AddressPat(ContainerBase):
     pass
 
 
-class Address(AddressPat):
+class Address:
     def __init__(self, address):
         self.address = address
 
+    def __repr__(self):
+        return f'Address({self.address})'
 
-class Label(AddressPat):
-    def __init__(self, label):
-        self.label = label
+    def __str__(self):
+        return f'0x{self.address:X}'
+
+
+class Label(ContainerBase):
+    pass
 
 
 class BlockPat:
@@ -143,7 +191,16 @@ class BlockPat:
         return f'BlockPat({self.lines!r})'
 
     def __str__(self):
-        return '\n'.join(str(line) for line in self.lines)
+        line_strs = []
+        for line in self.lines:
+            if isinstance(line, AddressPat):
+                line_strs.append(f'{line}:')
+            elif isinstance(line, InstructionPat):
+                line_strs.append(indent(str(line)))
+            else:
+                raise TypeError(f'Invalid line of type {type(line)}')
+
+        return '\n'.join(line_strs)
 
     def __eq__(self, other):
         if not isinstance(other, BlockPat):
@@ -174,18 +231,18 @@ class ArmPatternTransformer(Transformer):
         return instruction_pat
 
     def address_pat(self, pat):
-        assert isinstance(pat, AddressPat)
-        return pat
+        assert isinstance(pat, (Address, Label))
+        return AddressPat(pat)
 
     def address(self, parts):
         (num, ) = parts
         assert isinstance(num, Token)
-        return Address(int(num.value, 0))
+        return AddressPat(Address(int(num.value, 0)))
 
     def label(self, parts):
         (name, ) = parts
         assert isinstance(name, Token)
-        return Label(name.value)
+        return AddressPat(Label(name.value))
 
     def line_pat(self, parts):
         (result, ) = parts
@@ -258,9 +315,39 @@ class ArmPatternTransformer(Transformer):
     def lone_command(self, parts):
         return parts
 
+    def addressed_command(self, parts):
+        return parts
+
     def block_pat(self, line_pats):
         lines = []
         for lp in line_pats:
-            assert isinstance(lp, list)
+            assert isinstance(lp, list), type(lp)
             lines.extend(lp)
         return BlockPat(lines)
+
+    def _mem_multi_pat_1(self, parts):
+        (value, ) = parts
+        assert isinstance(value, (RegPat, RegRangePat))
+        return value
+
+    def _mem_multi_pat_2(self, parts):
+        assert all(isinstance(p, (RegPat, RegRangePat, WildcardMulti)) for p in parts)
+        return parts
+
+    def mem_multi_pat(self, parts):
+        assert all(isinstance(p, (RegPat, RegRangePat, WildcardMulti)) for p in parts)
+        return MemMultiPat(parts)
+
+    def reg_range_pat(self, parts):
+        start, end = parts
+        return RegRangePat(start, end)
+
+    def mem_offset_pat(self, parts):
+        (value, ) = parts
+        return MemOffsetPat(value)
+
+    def shifted_reg_pat(self, parts):
+        reg_pat, shift_pat = parts
+        return ShiftedRegPat(reg_pat, shift_pat)
+
+    shifted_reg_offset_pat = shifted_reg_pat

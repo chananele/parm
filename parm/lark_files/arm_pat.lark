@@ -38,7 +38,7 @@ post_index_pat: "," mem_offset_optional_pat
 
 mem_offset_pat: wildcard_s
               | immediate_pat
-              | reg ["," shift_pat] -> shifted_reg_offset
+              | reg ["," shift_pat] -> shifted_reg_offset_pat
 
 mem_offset_optional_pat: mem_offset_pat
                        | wildcard_o

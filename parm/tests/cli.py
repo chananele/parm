@@ -42,9 +42,9 @@ def test_arm_patterns():
     trees = load_arm_pattern_trees(parser)
     transformer = arm_pattern.ArmPatternTransformer()
     for tree in trees:
+        print('----------------------------------c')
         result = transformer.transform(tree)
         print(result)
-        break
 
 
 def main():
