@@ -2,9 +2,6 @@ from lark import Lark
 
 
 def create_parser(path, rel_to, start, postlex=None, parser='earley', lexer=None, **kwargs):
-    if parser == 'earley' and lexer is None:
-        lexer = 'dynamic_complete'
-
     if postlex is not None:
         kwargs['postlex'] = postlex
     if parser is not None:
