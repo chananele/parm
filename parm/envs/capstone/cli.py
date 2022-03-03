@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import click
+from parm.envs.capstone import disassemble_binary_file
 
 SUPPORTED_BUILDS = {
     ("arm", "32"),
@@ -20,11 +21,17 @@ SUPPORTED_BUILDS = {
               type=click.File('w'),
               default=sys.stdout,
               help="Output file (stdout by default)")
-def cli(arch, mode, output):
+@click.pass_context
+def cli(ctx, arch, mode, output):
     if (arch, mode) not in SUPPORTED_BUILDS:
         click.echo(
             f"Got ({arch}, {mode}) while currently only supporting: {SUPPORTED_BUILDS}",
             err=True)
+
+    ctx.ensure_object(dict)
+    ctx.obj['arch'] = arch
+    ctx.obj['mode'] = mode
+    ctx.obj['output'] = output
 
 
 @cli.command()
@@ -43,12 +50,18 @@ def cli(arch, mode, output):
               type=int,
               default=None,
               help="size limit to disassemble, there is no limit by default")
-def dump(binary_path: Path, offset: int, size: int):
+@click.pass_obj
+def dump(ctx_obj: dict, binary_path: Path, offset: int, size: int):
     """
     Dump disassembly of a given binary file
     """
-    # TODO: disassemble binary file to asm
-    pass
+    if not (asm := disassemble_binary_file(binary_path, ctx_obj["arch"],
+                                           ctx_obj["mode"], offset, size)):
+        click.echo("Dump failed :(", err=True)
+        return
+
+    click.echo(asm, file=ctx_obj["output"])
+    click.echo(f"\nDumped successfully into {ctx_obj['output'].name} !")
 
 
 @cli.group()
