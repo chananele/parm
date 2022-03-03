@@ -14,6 +14,8 @@ setup(
         'console_scripts': [
             'parm_run_tests=parm.tests.run_tests:main',
             'parm_cli=parm.tests.cli:main',
+            'iparm=parm.envs.ida.cli:cli',
+            'cparm=parm.envs.capstone.cli:cli',
         ]
     }
 )
