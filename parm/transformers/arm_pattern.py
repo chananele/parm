@@ -3,6 +3,39 @@ from lark import Transformer, Token
 from parm.utils import indent
 
 
+class MemSinglePatBase:
+    def __init__(self, base, offset=None):
+        self.base = base
+        self.offset = offset
+
+        self.parts = [p for p in (base, offset) if p is not None]
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({", ".join([repr(o) for o in self.parts])})'
+
+    def __str__(self):
+        raise NotImplementedError()
+
+
+class MemSinglePat(MemSinglePatBase):
+    def __str__(self):
+        return f'[{", ".join([str(o) for o in self.parts])}]'
+
+
+class MemSinglePrePat(MemSinglePatBase):
+    def __str__(self):
+        return f'[{", ".join([str(o) for o in self.parts])}]!'
+
+
+class MemSinglePostPat(MemSinglePatBase):
+    def __init__(self, base, offset):
+        assert offset is not None
+        super().__init__(base, offset)
+
+    def __str__(self):
+        return f'[{self.base}], {self.offset}'
+
+
 class ContainerBase:
     def __init__(self, value):
         self.value = value
@@ -351,3 +384,27 @@ class ArmPatternTransformer(Transformer):
         return ShiftedRegPat(reg_pat, shift_pat)
 
     shifted_reg_offset_pat = shifted_reg_pat
+
+    def mem_single_wildcard_m(self, parts):
+        (wc, ) = parts
+        return MemSinglePat(wc)
+
+    def mem_single_wildcard_m_pre(self, parts):
+        (wc, ) = parts
+        return MemSinglePrePat(wc)
+
+    def mem_single_wildcard_m_post(self, parts):
+        wc, offset = parts
+        return MemSinglePostPat(wc, offset)
+
+    def mem_single_reg(self, parts):
+        reg_pat, offset = parts
+        return MemSinglePat(reg_pat, offset)
+
+    def mem_single_reg_pre(self, parts):
+        reg_pat, offset = parts
+        return MemSinglePrePat(reg_pat, offset)
+
+    def mem_single_reg_post(self, parts):
+        reg_pat, offset = parts
+        return MemSinglePostPat(reg_pat, offset)

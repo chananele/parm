@@ -29,25 +29,16 @@ shift_pat: shift_op_pat "#" shift_val_pat
 
 shifted_reg_pat: reg_pat ["," shift_pat]
 
-pre_indexed: "!"
-maybe_pre_indexed: wildcard_o
-pre_index_pat: pre_indexed
-             | maybe_pre_indexed
-
-post_index_pat: "," mem_offset_optional_pat
-
 mem_offset_pat: wildcard_s
               | immediate_pat
               | reg ["," shift_pat] -> shifted_reg_offset_pat
 
-mem_offset_optional_pat: mem_offset_pat
-                       | wildcard_o
-
-mem_single_pat: "[" wildcard_m "]" ([pre_index_pat] | [post_index_pat])
-              | "[" wildcard_m "]" wildcard_o "," wildcard_o
-              | "[" reg_pat "]" [post_index_pat]
-              | "[" reg_pat "," mem_offset_pat "]" [pre_indexed]
-              | "[" reg_pat "," mem_offset_optional_pat "]" maybe_pre_indexed
+mem_single_pat: "[" wildcard_m "]" -> mem_single_wildcard_m
+              | "[" wildcard_m "]" "!" -> mem_single_wildcard_m_pre
+              | "[" wildcard_m "]" "," mem_offset_pat -> mem_single_wildcard_m_post
+              | "[" reg_pat ["," mem_offset_pat] "]" -> mem_single_reg
+              | "[" reg_pat "]" "," mem_offset_pat -> mem_single_reg_post
+              | "[" reg_pat "," mem_offset_pat "]" "!" -> mem_single_reg_pre
 
 reg_range_pat: reg_pat "-" reg_pat
 _mem_multi_pat_1: (reg_pat | reg_range_pat | wildcard_m)
