@@ -28,8 +28,9 @@ def test_arm_code():
 
 
 def load_arm_pattern_trees(parser):
-    yield parser.parse('* r0')
-    yield parser.parse('test: * r1, r2')
+    yield parser.parse('blx* r0')
+    yield parser.parse('beq @:target')
+    yield parser.parse('test: mov* r1, r2')
     yield parser.parse('0x1000: * r1, [r3, @]')
     yield parser.parse('* @, [*]')
     yield parser.parse('* r1, [r2, @]')

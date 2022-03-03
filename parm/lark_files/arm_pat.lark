@@ -1,8 +1,8 @@
 CAPTURE: CNAME
 
-wildcard_m: "*" [":" CAPTURE]
-wildcard_s: "@" [":" CAPTURE]
-wildcard_o: "?" [":" CAPTURE]
+wildcard_m: "*" [[_WS] ":" [_WS] CAPTURE]
+wildcard_s: "@" [[_WS] ":" [_WS] CAPTURE]
+wildcard_o: "?" [[_WS] ":" [_WS] CAPTURE]
 
 
 identifier: CAPTURE
@@ -12,9 +12,11 @@ immediate_pat: "#" wildcard_s -> immediate_wildcard
              | "#" NUM -> immediate_value
 
 
-address_pat: NUM -> address
-           | CAPTURE -> label
+line_address_pat: NUM -> address
+                | CAPTURE -> label
 
+address_pat: NUM -> address
+           | wildcard_s
 
 reg_pat: reg
        | wildcard_s
@@ -27,61 +29,97 @@ shift_val_pat: wildcard_s -> shift_val_wildcard
 
 shift_pat: shift_op_pat "#" shift_val_pat
 
-shifted_reg_pat: reg_pat ["," shift_pat]
+shifted_reg_pat: reg_pat [[_WS] "," [_WS] shift_pat]
 
 mem_offset_pat: wildcard_s
               | immediate_pat
-              | reg ["," shift_pat] -> shifted_reg_offset_pat
+              | reg [[_WS] "," [_WS] shift_pat] -> shifted_reg_offset_pat
 
-mem_single_pat: "[" wildcard_m "]" -> mem_single_wildcard_m
-              | "[" wildcard_m "]" "!" -> mem_single_wildcard_m_pre
-              | "[" wildcard_m "]" "," mem_offset_pat -> mem_single_wildcard_m_post
-              | "[" reg_pat ["," mem_offset_pat] "]" -> mem_single_reg
-              | "[" reg_pat "]" "," mem_offset_pat -> mem_single_reg_post
-              | "[" reg_pat "," mem_offset_pat "]" "!" -> mem_single_reg_pre
+mem_single_pat: "[" [_WS] wildcard_m [_WS] "]" -> mem_single_wildcard_m
+              | "[" [_WS] wildcard_m [_WS] "]" [_WS] "!" -> mem_single_wildcard_m_pre
+              | "[" [_WS] wildcard_m [_WS] "]" [_WS] "," [_WS] mem_offset_pat -> mem_single_wildcard_m_post
+              | "[" [_WS] reg_pat [[_WS] "," [_WS] mem_offset_pat] [_WS] "]" -> mem_single_reg
+              | "[" [_WS] reg_pat [_WS] "]" [_WS] "," [_WS] mem_offset_pat -> mem_single_reg_post
+              | "[" [_WS] reg_pat [_WS] "," [_WS] mem_offset_pat [_WS] "]" [_WS] "!" -> mem_single_reg_pre
 
-reg_range_pat: reg_pat "-" reg_pat
+reg_range_pat: reg_pat [_WS] "-" [_WS] reg_pat
 _mem_multi_pat_1: (reg_pat | reg_range_pat | wildcard_m)
-_mem_multi_pat_2: (reg_pat | reg_range_pat) ["," _mem_multi_pat_1]
-mem_multi_pat: "{" _mem_multi_pat_1 ("," _mem_multi_pat_2)* "}"
+_mem_multi_pat_2: (reg_pat | reg_range_pat) [[_WS] "," [_WS] _mem_multi_pat_1]
+mem_multi_pat: "{" [_WS] _mem_multi_pat_1 ([_WS] "," [_WS] _mem_multi_pat_2)* [_WS] "}"
 
-operands_pat: reg_pat ["," shifted_reg_pat] ["," wildcard_m]
-            | reg_pat "," mem_single_pat
-            | reg_pat "," mem_multi_pat
+operands_pat: reg_pat [[_WS] "," [_WS] shifted_reg_pat]
+            | reg_pat [_WS] "," [_WS] reg_pat [_WS] "," [_WS] shifted_reg_pat
+            | reg_pat [_WS] "," [_WS] mem_single_pat
+            | reg_pat [_WS] "," [_WS] mem_multi_pat
 
-OPCODE_WILDCARD: "*"
+OPCODE_MOV_PAT: MOV_LO [S_LO] ("*" | CONDITION_LO)
+              | MOV_HI [S_HI] ("*" | CONDITION_HI)
 
-opcode_wildcard: OPCODE_WILDCARD [":" CAPTURE]
+OPCODE_ARITHMETIC_PAT: ARITHMETIC_LO [S_LO] ("*" | CONDITION_LO)
+                     | ARITHMETIC_HI [S_HI] ("*" | CONDITION_HI)
 
-instruction_pat: opcode_wildcard _POST_OPCODE operands_pat -> wildcard_op
-               | OPCODE_MOV _POST_OPCODE reg_pat "," shifted_reg_pat -> mov_op
+OPCODE_BRANCH_REL_PAT: BRANCH_REL_LO ("*" | CONDITION_LO)
+                     | BRANCH_REL_HI ("*" | CONDITION_HI)
+
+OPCODE_BRANCH_IND_PAT: BRANCH_IND_LO ("*" | CONDITION_LO)
+                     | BRANCH_IND_HI ("*" | CONDITION_HI)
+
+
+mov_operands_pat: reg_pat [_WS] "," [_WS] shifted_reg_pat
+                | wildcard_m
+
+arithmetic_operands_pat: reg_pat [_WS] "," [_WS] shifted_reg_pat
+                       | reg_pat [_WS] "," [_WS] reg_pat [_WS] "," [_WS] shifted_reg_pat
+                       | [reg_pat [_WS] "," [_WS]] wildcard_m
+
+branch_rel_operands_pat: address_pat
+branch_ind_operands_pat: reg_pat
+
+instruction_pat: wildcard_m _WS operands_pat
+               | OPCODE_MOV_PAT _WS mov_operands_pat
+               | OPCODE_ARITHMETIC_PAT _WS arithmetic_operands_pat
+               | OPCODE_BRANCH_REL_PAT _WS branch_rel_operands_pat
+               | OPCODE_BRANCH_IND_PAT _WS branch_ind_operands_pat
 
 _COMMENT: /\/\/[^\n]*/
 
 ONE_LINER: /[^\n]+/
 
-special_command: "pattern" identifier "{" "\n" block_pat "\n" "}" -> pattern_def
-               | "var" identifier -> var_def
+special_command: "pattern" [_WS] identifier [_WS] "{" [_WS] _NL block_pat _NL [_WS] "}" -> pattern_def
+               | "var" [_WS] identifier -> var_def
 
 command_pat: instruction_pat [_COMMENT] -> instruction_line
-           | "!" ONE_LINER -> uni_code
-           | "$" ONE_LINER -> multi_code
-           | "%" special_command
+           | "!" [_WS] ONE_LINER -> uni_code
+           | "$" [_WS] ONE_LINER -> multi_code
+           | "%" [_WS] special_command
 
 line_pat: command_pat -> lone_command
-        | address_pat ":" [_COMMENT] -> lone_address
-        | address_pat ":" command_pat -> addressed_command
+        | line_address_pat [_WS] ":" [_WS] [_COMMENT] -> lone_address
+        | line_address_pat [_WS] ":" [_WS] command_pat -> addressed_command
 
-block_pat: line_pat ("\n"+ line_pat)* "\n"*
+block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
 
 %import .arm.NUM
 %import .arm.SHIFT_OP
 %import .arm.SHIFT_VAL
 %import .arm._POST_OPCODE
 
-%import .arm.OPCODE_MOV
+%import .arm.S_LO
+%import .arm.S_HI
+%import .arm.CONDITION_LO
+%import .arm.CONDITION_HI
+%import .arm.MOV_LO
+%import .arm.MOV_HI
+%import .arm.ARITHMETIC_LO
+%import .arm.ARITHMETIC_HI
+%import .arm.BRANCH_REL_LO
+%import .arm.BRANCH_REL_HI
+%import .arm.BRANCH_IND_LO
+%import .arm.BRANCH_IND_HI
 
 %import .arm.reg
 
 %import common.WS_INLINE -> _WS
+%import common.WS -> _AWS
+%import common.NEWLINE -> _NL
 %import common.CNAME

@@ -243,7 +243,7 @@ class BlockPat:
             elif isinstance(line, InstructionPat):
                 line_strs.append(indent(str(line)))
             else:
-                raise TypeError(f'Invalid line of type {type(line)}')
+                raise TypeError(f'Invalid line of type {type(line)}, {line}')
 
         return '\n'.join(line_strs)
 
@@ -275,8 +275,17 @@ class ArmPatternTransformer(Transformer):
         (instruction_pat, ) = parts
         return instruction_pat
 
-    def address_pat(self, pat):
+    def instruction_pat(self, parts):
+        opcode, operands = parts
+        return InstructionPat(opcode, operands)
+
+    def line_address_pat(self, pat):
         assert isinstance(pat, (Address, Label))
+        return AddressPat(pat)
+
+    def address_pat(self, parts):
+        (pat, ) = parts
+        assert isinstance(pat, (Address, WildcardSingle))
         return AddressPat(pat)
 
     def address(self, parts):
@@ -301,12 +310,13 @@ class ArmPatternTransformer(Transformer):
         (code, ) = parts
         return MultiCodeLine(code)
 
-    def wildcard_op(self, parts):
-        wildcard, operands = parts
-        return InstructionPat(wildcard, operands)
-
     def operands_pat(self, parts):
         return OperandsPat(parts)
+
+    mov_operands_pat = operands_pat
+    arithmetic_operands_pat = operands_pat
+    branch_rel_operands_pat = operands_pat
+    branch_ind_operands_pat = operands_pat
 
     def reg(self, parts):
         (name, ) = parts
