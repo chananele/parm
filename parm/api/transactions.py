@@ -7,12 +7,12 @@ class TransactionError(Exception):
     pass
 
 
-class TransactionCommitOrderViolation(TransactionError):
+class TransactionOrderViolation(TransactionError):
     def __init__(self, transaction):
         self.transaction = transaction
 
 
-class UncommittedChildrenException(TransactionCommitOrderViolation):
+class LiveChildrenException(TransactionOrderViolation):
     pass
 
 
@@ -22,14 +22,34 @@ class Transaction:
         self._rollback_ops = []
         self._children = []
 
-    def rollback(self):
+    def _pop_child(self, child):
+        last = self._children.pop()
+        if last is not child:
+            raise TransactionOrderViolation(self)
+
+    def _finish_transaction(self, fn):
+        if self._children:
+            raise LiveChildrenException(self)
+
+        p = self._parent
+        if p is not None:
+            p._pop_child(self)
+
+        fn()
+        self._rollback_ops.clear()
+
+    def _perform_rollback(self):
         for op in reversed(self._rollback_ops):
             op()
-        self._rollback_ops.clear()
+
+    def rollback(self):
+        self._finish_transaction(self._perform_rollback)
 
     def __del__(self):
         if self._rollback_ops:
             raise TransactionError('Transaction not committed or rolled back!')
+        if self._children:
+            raise LiveChildrenException(self)
 
     def add_rollback_op(self, op):
         self._rollback_ops.append(op)
@@ -39,22 +59,13 @@ class Transaction:
         self._children.append(result)
         return result
 
-    def _inherit(
-            self,
-            child  # type: Transaction
-    ):
-        last = self._children.pop()
-        if child is not last:
-            raise TransactionCommitOrderViolation(self)
-        self._rollback_ops.extend(child._rollback_ops)
-
-    def commit(self):
-        if self._children:
-            raise UncommittedChildrenException(self)
+    def _inherit_rollback(self):
         p = self._parent
         if p is not None:
-            p._inherit(self)
-        self._rollback_ops.clear()
+            p._rollback_ops.extend(self._rollback_ops)
+
+    def commit(self):
+        self._finish_transaction(self._inherit_rollback)
 
 
 class Transactable:

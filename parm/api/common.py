@@ -1,28 +1,37 @@
-from typing import Iterator
-
 from parm.api.exceptions import PatternMismatchException, TooManyMatches, NoMatches
 from parm.api.match_result import MatchResult
 
 
-def find_all(pattern, cursors) -> Iterator[MatchResult]:
+def find_all(pattern, cursors, match_result: MatchResult = None) -> MatchResult:
+    if match_result is None:
+        match_result = MatchResult()
+
     for c in cursors:
         try:
-            yield c.match(pattern)
+            with match_result.transact():
+                yield c.match(pattern)
         except PatternMismatchException:
             pass
 
 
-def find_first(pattern, cursors) -> MatchResult:
+def find_first(pattern, cursors, match_result: MatchResult = None) -> MatchResult:
+    if match_result is None:
+        match_result = MatchResult()
+
     for c in cursors:
         try:
-            return c.match(pattern)
+            with match_result.transact():
+                return c.match(pattern)
         except PatternMismatchException:
             pass
 
     raise NoMatches()
 
 
-def find_single(pattern, cursors) -> MatchResult:
+def find_single(pattern, cursors, match_result: MatchResult = None) -> MatchResult:
+    if match_result is None:
+        match_result = MatchResult()
+
     result = list(find_all(pattern, cursors))
     count = len(result)
     if count > 1:
