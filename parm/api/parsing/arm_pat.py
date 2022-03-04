@@ -1,11 +1,13 @@
+from typing import Iterable
+
 from fnmatch import fnmatch
 from lark import Transformer, Token
 
-from parm.utils import indent
-from parm.transformers import arm
-
-from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch
+from parm.api.parsing import arm
+from parm.api.parsing.utils import indent
+from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMatches, NotAllOperandsMatched
 from parm.api.match_result import MatchResult
+from parm.api.cursor import Cursor
 
 
 class OpcodePat:
@@ -28,13 +30,12 @@ class OpcodePat:
             return False
         return self.name == other.name and self.capture == other.capture
 
-    def match(self, val, match_result: MatchResult):
-        if not isinstance(val, str):
-            raise PatternTypeMismatch(self.name, val)
-        if not fnmatch(val, self.name):
-            raise PatternValueMismatch(self.name, val)
-        if self.capture is not None:
-            match_result[self.capture] = val
+    def match(self, opcode, match_result: MatchResult):
+        if not isinstance(opcode, str):
+            raise PatternTypeMismatch(self.name, opcode)
+        if not fnmatch(opcode, self.name):
+            raise PatternValueMismatch(self.name, opcode)
+        match_result[self.capture] = opcode
 
 
 class ShiftPat:
@@ -160,6 +161,12 @@ class OperandsPat:
         if not isinstance(other, OperandsPat):
             return False
         return self.ops == other.ops
+
+    def match(self, operands: list, match_result: MatchResult):
+        for o in self.ops:
+            operands = o.consume(operands, match_result)
+        if operands:
+            raise NotAllOperandsMatched(operands)
 
 
 class IntegerVal(ContainerBase):
@@ -291,7 +298,8 @@ class MultiCodeLine(CodeLine):
 
 
 class AddressPat(ContainerBase):
-    pass
+    def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
+        return self.value.match(cursor, match_result)
 
 
 class Address:
@@ -304,9 +312,16 @@ class Address:
     def __str__(self):
         return f'0x{self.address:X}'
 
+    def match(self, cursor: Cursor, _: MatchResult) -> Iterable[Cursor]:
+        if cursor.address != self.address:
+            raise PatternValueMismatch(self.address, cursor.address)
+        return [cursor]
+
 
 class Label(ContainerBase):
-    pass
+    def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
+        match_result[self.value] = cursor.address
+        return [cursor]
 
 
 class BlockPat:
@@ -333,6 +348,20 @@ class BlockPat:
             return False
         return self.lines == other.lines
 
+    def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
+        cursors = [cursor]
+        next_cursors = []
+        for line in self.lines:
+            if not cursors:
+                raise NoMatches()
+
+            for c in cursors:
+                ncs = line.match(c, match_result)  # type: Iterable[Cursor]
+                next_cursors.extend(ncs)
+            cursors = next_cursors
+
+        return cursors
+
 
 class InstructionPat:
     def __init__(self, opcode_pat, operand_pats):
@@ -349,6 +378,12 @@ class InstructionPat:
         if not isinstance(other, InstructionPat):
             return False
         return self.opcode_pat == other.opcode_pat and self.operand_pats == other.operand_pats
+
+    def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
+        inst = cursor.instruction
+        self.opcode_pat.match(inst.opcode, match_result)
+        self.operand_pats.match(inst.operands, match_result)
+        return [cursor.next()]
 
 
 class ArmPatternTransformer(Transformer):

@@ -1,4 +1,6 @@
 from parm.api.match_result import MatchResult
+from parm.api.exceptions import NoMoreInstructions
+from parm.api.parsing.arm import Instruction
 
 
 class Cursor:
@@ -6,7 +8,7 @@ class Cursor:
         self.env = env
 
     @property
-    def line(self):
+    def instruction(self) -> Instruction:
         raise NotImplementedError()
 
     @property
@@ -28,4 +30,23 @@ class Cursor:
 
         :rtype: Cursor
         """
+        raise NotImplementedError()
+
+
+class TerminalCursor(Cursor):
+    @property
+    def address(self):
+        raise NotImplementedError()
+
+    @property
+    def instruction(self):
+        raise NoMoreInstructions()
+
+    def match(self, pattern, match_results: MatchResult = None) -> MatchResult:
+        raise NoMoreInstructions()
+
+    def next(self):
+        raise NoMoreInstructions()
+
+    def prev(self):
         raise NotImplementedError()

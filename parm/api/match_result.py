@@ -1,4 +1,4 @@
-from typing import Mapping, Union, List
+from typing import Mapping, Union, List, Iterable
 from contextlib import contextmanager
 
 from parm.api.transactions import Transactable
@@ -13,6 +13,10 @@ class DuplicateValueException(Exception):
 
 
 class TrackingDict(ChainMap):
+    """
+    A ChainMap that does not allow overwriting values.
+    """
+
     def __setitem__(self, key, value):
         if key is None:
             return
@@ -33,6 +37,25 @@ class DeclaredVar:
     def __init__(self, scope, name):
         self.scope = scope  # type: MatchResult
         self.name = name
+        self._val = None
+
+    @property
+    def val(self):
+        if self._val is None:
+            raise UndefinedVar(self, self.name)
+        return self._val
+
+    @val.setter
+    def val(self, val):
+        if self._val is not None and val is not None:
+            raise DuplicateValueException()
+        self._val = val
+
+    def unset_val(self):
+        self._val = None
+
+    def is_val_set(self):
+        return self._val is None
 
 
 class UndefinedVar(Exception):
@@ -72,17 +95,18 @@ class MatchResult(Transactable):
         self._parent = parent  # type: MatchResult
 
         self._scopes = ChainMap()
-        self._results = ChainMap()
         self._scope_ix = ChainCounter()
         self._captured_vars = ChainStack()
 
         self._subs = TrackingDict()
         self._sub = TrackingDict()
 
+        self._results = ChainMap()
+
     @staticmethod
-    def _invalidate_vars(vs):
+    def _invalidate_vars(vs: Iterable[DeclaredVar]):
         for v in vs:
-            v.scope[v.name] = v
+            v.val = None
 
     def _track_captured_vars(self):
         vs = self._track_chainstack(self._captured_vars)
@@ -120,13 +144,19 @@ class MatchResult(Transactable):
         try:
             result = self._results[item]
             if isinstance(result, DeclaredVar):
-                raise UndefinedVar(result, item)
+                return result.val
+            return result
         except KeyError:
             if self._parent is None:
                 raise
             return self._parent[item]
 
     def __setitem__(self, key, value):
+        if key is None:
+            return
+
+        assert isinstance(key, str)
+
         try:
             existing = self[key]
             if existing != value:
@@ -135,7 +165,7 @@ class MatchResult(Transactable):
             self._results[key] = value
         except UndefinedVar as uv:
             var = uv.var
-            var.scope[key] = value
+            var.val = value
             self._captured_vars.push(var)
 
     def add_scope(self, scope, name=None):

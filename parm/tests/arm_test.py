@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from parm import parsers
-from parm.transformers.arm import *
+from parm.api.parsing.arm import *
 
 
 class ArmTest(TestCase):
