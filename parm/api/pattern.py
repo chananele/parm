@@ -2,7 +2,7 @@ from typing import Iterable
 
 from parm.api.env import Env
 from parm.api.cursor import Cursor
-from parm.api.exceptions import NoMatches, PatternMismatchException, TooManyMatches
+from parm.api.exceptions import NoMatches, PatternMismatchException, TooManyMatches, ExpectFailure
 from parm.api.match_result import MatchResult
 
 
@@ -99,44 +99,71 @@ class LineMultiPattern(LinePattern):
     @staticmethod
     def _add_pattern_match_cbs(env: Env, cursors: Iterable[Cursor], match_result: MatchResult):
         def _match_all(pattern, name=None):
+            result = []
             ms = match_result.new_multi_scope(name)
             for c in cursors:
                 s = ms.new_scope()
-                c.match(pattern, s)
+                result.extend(c.match(pattern, s))
         env.add_multi_vars(match_all=_match_all)
 
         def _match_some(pattern, name=None):
-            match_count = 0
-            with match_result.transact():
-                ms = match_result.new_multi_scope(name)
-                for c in cursors:
-                    try:
-                        with ms.transact():
-                            s = ms.new_scope()
-                            c.match(pattern, s)
-                    except PatternMismatchException:
-                        pass
-                if match_count <= 0:
-                    raise NoMatches()
+            result = []
+            ms = match_result.new_multi_scope(name)
+            for c in cursors:
+                try:
+                    with ms.transact():
+                        s = ms.new_scope()
+                        result.extend(c.match(pattern, s))
+                except PatternMismatchException:
+                    pass
+            return result
         env.add_multi_vars(match_some=_match_some)
 
         def _match_single(pattern, name=None):
-            matched = False
-            with match_result.transact():
-                ms = match_result.new_multi_scope(name)
-                for c in cursors:
-                    try:
-                        with ms.transact():
-                            s = ms.new_scope()
-                            c.match(pattern, s)
-                    except PatternMismatchException:
-                        continue
-                    if matched:
-                        raise TooManyMatches()
-                    matched = True
-                if not matched:
-                    raise NoMatches()
+            result = []
+            ms = match_result.new_multi_scope(name)
+            for c in cursors:
+                try:
+                    with ms.transact():
+                        s = ms.new_scope()
+                        result.extend(c.match(pattern, s))
+                except PatternMismatchException:
+                    continue
+                if result:
+                    raise TooManyMatches()
+            return result
         env.add_multi_vars(match_single=_match_single)
+
+    @staticmethod
+    def _add_util_cbs(env: Env, cursors: Iterable[Cursor], match_result: MatchResult):
+        def _expect(condition):
+            if not condition:
+                raise
+
+        def _single():
+            s = None
+            for c in cursors:
+                if s is not None:
+                    raise ExpectFailure()
+                s = c
+            return [s]
+
+        def _multiple():
+            cnt = 0
+            first = None
+            for c in cursors:
+                if cnt == 0:
+                    first = c
+                else:
+                    if cnt == 1:
+                        yield first
+                    yield c
+                cnt += 1
+            if cnt <= 1:
+                raise NoMatches()
+
+        env.add_multi_magic('single', _single)
+        env.add_multi_magic('multiple', _multiple)
 
     def _prepare_multi_code_env(self, cursors: Iterable[Cursor], match_result: MatchResult):
         env = self.env.clone()  # We clone so as not to modify the global environment
@@ -146,9 +173,9 @@ class LineMultiPattern(LinePattern):
     def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
         env = self._prepare_multi_code_env(cursors, match_result)
         result = env.run_multi_code(self.code)
-        if result is None:
-            result = cursors
-        yield from result
+        if not result:
+            raise NoMatches()
+        return result
 
 
 class LineAssemblyPattern(LinePattern):

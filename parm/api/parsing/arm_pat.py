@@ -5,6 +5,7 @@ from lark import Transformer, Token
 
 from parm.api.parsing import arm
 from parm.api.parsing.utils import indent
+from parm.api.exceptions import PatternMismatchException, OperandsExhausted
 from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMatches, NotAllOperandsMatched
 from parm.api.match_result import MatchResult
 from parm.api.cursor import Cursor
@@ -163,8 +164,22 @@ class OperandsPat:
         return self.ops == other.ops
 
     def match(self, operands: list, match_result: MatchResult):
+        def _completer_gen(i):
+            def _ensure_end(remainder):
+                if remainder:
+                    raise NotAllOperandsMatched(remainder)
+            try:
+                op = self.ops[i + 1]
+            except IndexError:
+                return _ensure_end
+
+            def completer(remaining):
+                op.consume(remaining, match_result, _completer_gen(i + 1))
+
+            return completer
+
         for o in self.ops:
-            operands = o.consume(operands, match_result)
+            operands = o.consume(operands, match_result, _completer_gen(0))
         if operands:
             raise NotAllOperandsMatched(operands)
 
@@ -217,34 +232,44 @@ class WildcardBase:
 class WildcardMulti(WildcardBase):
     symbol = '*'
 
-    def match(self, val, match_result: MatchResult):
-        if isinstance(val, (int, str, type(None))):
-            if self.capture is not None:
-                match_result[self.capture] = val
-            return
-        raise PatternTypeMismatch(self, val)
+    def consume(self, operands, match_result: MatchResult, complete):
+        for i in range(len(operands) + 1):
+            with match_result.transact():
+                complete(operands[i:])
+                match_result[self.capture] = operands[:i]
+        raise NoMatches()
 
 
 class WildcardOptional(WildcardBase):
     symbol = '?'
 
-    def match(self, val, match_result: MatchResult):
-        if isinstance(val, list):
-            raise PatternTypeMismatch(self, val)
-
-        if self.capture is not None:
-            match_result[self.capture] = val
+    def consume(self, operands: list, match_result: MatchResult, complete):
+        try:
+            op0 = operands[0]
+        except IndexError:
+            pass
+        else:
+            try:
+                with match_result.transact():
+                    match_result[self.capture] = op0
+                    complete(operands[1:])
+                    return
+            except PatternMismatchException:
+                pass
+        match_result[self.capture] = None
+        complete(operands)
 
 
 class WildcardSingle(WildcardBase):
     symbol = '@'
 
-    def match(self, val, match_result: MatchResult):
-        if isinstance(val, (list, type(None))):
-            raise PatternValueMismatch(self, val)
-
-        if self.capture is not None:
-            match_result[self.capture] = val
+    def consume(self, operands: list, match_result: MatchResult, complete):
+        try:
+            op0 = operands[0]
+        except IndexError:
+            raise OperandsExhausted(self)
+        match_result[self.capture] = op0
+        complete(operands[1:])
 
 
 class ImmediatePat:
@@ -350,16 +375,10 @@ class BlockPat:
 
     def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
         cursors = [cursor]
-        next_cursors = []
         for line in self.lines:
             if not cursors:
                 raise NoMatches()
-
-            for c in cursors:
-                ncs = line.match(c, match_result)  # type: Iterable[Cursor]
-                next_cursors.extend(ncs)
-            cursors = next_cursors
-
+            cursors = line.match(cursors, match_result)
         return cursors
 
 
@@ -379,16 +398,19 @@ class InstructionPat:
             return False
         return self.opcode_pat == other.opcode_pat and self.operand_pats == other.operand_pats
 
-    def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
-        inst = cursor.instruction
-        self.opcode_pat.match(inst.opcode, match_result)
-        self.operand_pats.match(inst.operands, match_result)
-        return [cursor.next()]
+    def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
+        next_cursors = []
+        for c in cursors:
+            inst = c.instruction
+            self.opcode_pat.match(inst.opcode, match_result)
+            self.operand_pats.match(inst.operands, match_result)
+            next_cursors.append(c.next())
+        return next_cursors
 
 
 class ArmPatternTransformer(Transformer):
     def opcode_wildcard(self, parts):
-        (capture, ) = parts
+        (capture,) = parts
         return OpcodePat('*', capture)
 
     def _opcode_pat(self, parts):
@@ -402,7 +424,7 @@ class ArmPatternTransformer(Transformer):
     approx_branch_ind = _opcode_pat
 
     def _exact_opcode(self, parts):
-        (pat, ) = parts
+        (pat,) = parts
         return OpcodePat(pat)
 
     exact_mov = _exact_opcode
@@ -411,7 +433,7 @@ class ArmPatternTransformer(Transformer):
     exact_branch_ind = _exact_opcode
 
     def instruction_line(self, parts):
-        (instruction_pat, ) = parts
+        (instruction_pat,) = parts
         return CommandPat(instruction_pat)
 
     def instruction_pat(self, parts):
@@ -424,34 +446,34 @@ class ArmPatternTransformer(Transformer):
         return AddressPat(pat)
 
     def address_pat(self, parts):
-        (pat, ) = parts
+        (pat,) = parts
         assert isinstance(pat, (Address, WildcardSingle))
         return AddressPat(pat)
 
     def address(self, parts):
-        (num, ) = parts
+        (num,) = parts
         assert isinstance(num, Token)
         return AddressPat(Address(int(num.value, 0)))
 
     def label(self, parts):
-        (name, ) = parts
+        (name,) = parts
         assert isinstance(name, Token)
         return AddressPat(Label(name.value))
 
     def line_pat(self, parts):
-        (result, ) = parts
+        (result,) = parts
         return result
 
     def uni_code(self, parts):
-        (code, ) = parts
+        (code,) = parts
         return CommandPat(UniCodeLine(code))
 
     def multi_code(self, parts):
-        (code, ) = parts
+        (code,) = parts
         return CommandPat(MultiCodeLine(code))
 
     def capture_opt(self, parts):
-        (cap, ) = parts
+        (cap,) = parts
         if cap is not None:
             assert isinstance(cap, Token)
             cap = cap.value
@@ -466,17 +488,17 @@ class ArmPatternTransformer(Transformer):
     branch_ind_operands_pat = operands_pat
 
     def reg(self, parts):
-        (name, ) = parts
+        (name,) = parts
         assert isinstance(name, Token)
         return Reg(name.value)
 
     def reg_pat(self, parts):
-        (value, ) = parts
+        (value,) = parts
         assert isinstance(value, (Reg, WildcardSingle))
         return RegPat(value)
 
     def wildcard_m(self, parts):
-        (capture, ) = parts
+        (capture,) = parts
         if capture is not None:
             assert isinstance(capture, Token)
             capture = capture.value
@@ -497,12 +519,12 @@ class ArmPatternTransformer(Transformer):
         return WildcardOptional(capture)
 
     def immediate_wildcard(self, parts):
-        (wildcard, ) = parts
+        (wildcard,) = parts
         assert isinstance(wildcard, WildcardBase)
         return ImmediatePat(wildcard)
 
     def immediate_value(self, parts):
-        (num, ) = parts
+        (num,) = parts
         assert isinstance(num, Token)
         return ImmediatePat(IntegerVal(int(num.value, 0)))
 
@@ -523,7 +545,7 @@ class ArmPatternTransformer(Transformer):
         return BlockPat(lines)
 
     def _mem_multi_pat_1(self, parts):
-        (value, ) = parts
+        (value,) = parts
         assert isinstance(value, (RegPat, RegRangePat))
         return value
 
@@ -540,11 +562,11 @@ class ArmPatternTransformer(Transformer):
         return RegRangePat(start, end)
 
     def mem_offset_pat(self, parts):
-        (value, ) = parts
+        (value,) = parts
         return MemOffsetPat(value)
 
     def shift_op(self, parts):
-        (op, ) = parts
+        (op,) = parts
         assert isinstance(op, Token)
         return op.value
 
@@ -553,12 +575,12 @@ class ArmPatternTransformer(Transformer):
         return value
 
     def shift_val(self, parts):
-        (val, ) = parts
+        (val,) = parts
         assert isinstance(val, Token)
         return val.value
 
     def shift_val_wildcard(self, parts):
-        (value, ) = parts
+        (value,) = parts
         assert isinstance(value, WildcardSingle), value
         return value
 
@@ -573,11 +595,11 @@ class ArmPatternTransformer(Transformer):
     shifted_reg_offset_pat = shifted_reg_pat
 
     def mem_single_wildcard_m(self, parts):
-        (wc, ) = parts
+        (wc,) = parts
         return MemSinglePat(wc)
 
     def mem_single_wildcard_m_pre(self, parts):
-        (wc, ) = parts
+        (wc,) = parts
         return MemSinglePrePat(wc)
 
     def mem_single_wildcard_m_post(self, parts):

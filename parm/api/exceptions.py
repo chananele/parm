@@ -40,3 +40,8 @@ class NoMoreInstructions(PatternMismatchException):
 class NotAllOperandsMatched(PatternMismatchException):
     def __init__(self, operands):
         self.operands = operands
+
+
+class OperandsExhausted(PatternMismatchException):
+    def __init__(self, pattern):
+        self.pattern = pattern
