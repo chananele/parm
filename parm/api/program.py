@@ -1,4 +1,4 @@
-from typing import Reversible
+from parm.api.type_hints import ReversibleIterable
 
 from parm.api.env import Env
 from parm.api.cursor import Cursor
@@ -42,5 +42,5 @@ class Program:
         raise NotImplementedError()
 
     @property
-    def cursors(self) -> Reversible[Cursor]:
+    def cursors(self) -> ReversibleIterable[Cursor]:
         raise NotImplementedError()
