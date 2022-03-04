@@ -1,6 +1,7 @@
 from typing import Iterable
 
 from fnmatch import fnmatch
+from functools import wraps
 from lark import Transformer, Token
 
 from parm.api.parsing import arm
@@ -9,6 +10,19 @@ from parm.api.exceptions import PatternMismatchException, OperandsExhausted
 from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMatches, NotAllOperandsMatched
 from parm.api.match_result import MatchResult
 from parm.api.cursor import Cursor
+
+
+def _single_consumer(func):
+    @wraps(func)
+    def decorator(self, operands: list, match_result: MatchResult, complete):
+        try:
+            op0 = operands[0]
+        except IndexError:
+            raise OperandsExhausted(self)
+        func(op0, match_result)
+        complete(operands[1:])
+
+    return decorator
 
 
 class OpcodePat:
@@ -147,6 +161,44 @@ class RegRangePat:
     def __str__(self):
         return f'{self.start}-{self.end}'
 
+    def consume(self, operands: list, match_result: MatchResult, complete):
+        def _expect_done(rem):
+            if rem:
+                raise NotAllOperandsMatched(rem)
+
+        for i, o in enumerate(operands):
+            if not isinstance(o, arm.Reg):
+                raise PatternTypeMismatch(self, o)
+            try:
+                with match_result.transact():
+                    self.start.consume([o], match_result, _expect_done)
+                break
+            except PatternMismatchException:
+                pass
+        else:
+            raise PatternValueMismatch(self, operands)
+
+        if i == len(operands) - 1:
+            raise PatternValueMismatch(self, operands)
+
+        o_index = arm.REG_INDEX[o.name]
+        remainder = operands[i + 1:]
+
+        for j, r in enumerate(remainder):
+            if not isinstance(r, arm.Reg):
+                raise PatternTypeMismatch(self, r)
+            if arm.REG_INDEX[r.name] != o_index + j + 1:
+                break
+            try:
+                with match_result.transact():
+                    self.end.consume([r], match_result, _expect_done)
+                    complete(remainder[j + 1:])
+                    return
+            except PatternMismatchException:
+                pass
+
+        raise PatternValueMismatch(self, operands)
+
 
 class OperandsPat:
     def __init__(self, ops):
@@ -165,47 +217,50 @@ class OperandsPat:
 
     def match(self, operands: list, match_result: MatchResult):
         def _completer_gen(i):
-            def _ensure_end(remainder):
-                if remainder:
-                    raise NotAllOperandsMatched(remainder)
+            def _ensure_end(r):
+                if r:
+                    raise NotAllOperandsMatched(r)
+
             try:
-                op = self.ops[i + 1]
+                o = self.ops[i + 1]
             except IndexError:
                 return _ensure_end
 
             def completer(remaining):
-                op.consume(remaining, match_result, _completer_gen(i + 1))
+                o.consume(remaining, match_result, _completer_gen(i + 1))
 
             return completer
 
-        for o in self.ops:
-            operands = o.consume(operands, match_result, _completer_gen(0))
-        if operands:
-            raise NotAllOperandsMatched(operands)
+        try:
+            op = self.ops[0]
+        except IndexError:
+            if operands:
+                raise NotAllOperandsMatched(operands)
+            return
+        op.consume(operands, match_result, _completer_gen(0))
 
 
 class IntegerVal(ContainerBase):
-    def match(self, val, _):
-        if not isinstance(val, int):
-            raise PatternTypeMismatch(self.value, val)
-
-        if val != self.value:
-            raise PatternValueMismatch(self.value, val)
+    @_single_consumer
+    def consume(self, op, _):
+        if not isinstance(op, int):
+            raise PatternTypeMismatch(self.value, op)
+        if op != self.value:
+            raise PatternValueMismatch(self.value, op)
 
 
 class RegPat(ContainerBase):
-    def match(self, val, match_result: MatchResult):
-        if not isinstance(val, arm.Reg):
-            raise PatternTypeMismatch(self.value, val)
-        self.value.match(val, match_result)
+    def consume(self, operands: list, match_result: MatchResult, complete):
+        self.value.consume(operands, match_result, complete)
 
 
 class Reg(ContainerBase):
-    def match(self, val, _):
-        if not isinstance(val, arm.Reg):
-            raise PatternTypeMismatch(self.value, val)
-        if self.value.lower() != val.name.lower():
-            raise PatternValueMismatch(self.value, val)
+    @_single_consumer
+    def consume(self, op, _: MatchResult):
+        if not isinstance(op, arm.Reg):
+            raise PatternTypeMismatch(self.value, op)
+        if self.value.lower() != op.name.lower():
+            raise PatternValueMismatch(self.value, op)
 
 
 class WildcardBase:
@@ -227,6 +282,9 @@ class WildcardBase:
         if cap is None:
             return self.symbol
         return f'{self.symbol}:{cap}'
+
+    def match(self, value, match_result: MatchResult):
+        match_result[self.capture] = value
 
 
 class WildcardMulti(WildcardBase):
@@ -263,24 +321,25 @@ class WildcardOptional(WildcardBase):
 class WildcardSingle(WildcardBase):
     symbol = '@'
 
-    def consume(self, operands: list, match_result: MatchResult, complete):
-        try:
-            op0 = operands[0]
-        except IndexError:
-            raise OperandsExhausted(self)
-        match_result[self.capture] = op0
-        complete(operands[1:])
+    @_single_consumer
+    def consume(self, op, match_result: MatchResult):
+        match_result[self.capture] = op
 
 
 class ImmediatePat:
     def __init__(self, value):
         self.value = value
 
-    def match(self, operand, match_result: MatchResult):
-        if not isinstance(operand, arm.Immediate):
-            raise PatternTypeMismatch(self, operand)
+    @_single_consumer
+    def consume(self, op, match_result: MatchResult):
+        if not isinstance(op, arm.Immediate):
+            raise PatternTypeMismatch(self, op)
 
-        self.value.match(operand.value, match_result)
+        def _sub_complete(remainder):
+            if remainder:
+                raise NotAllOperandsMatched(remainder)
+
+        self.value.consume([op.value], match_result, _sub_complete)
 
     def __repr__(self):
         return f'ImmediatePat({self.value!r})'
@@ -323,8 +382,12 @@ class MultiCodeLine(CodeLine):
 
 
 class AddressPat(ContainerBase):
+    def __init__(self, value):
+        super().__init__(value)
+
     def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
-        return self.value.match(cursor, match_result)
+        self.value.match(cursor.address, match_result)
+        return [cursor]
 
 
 class Address:
@@ -337,16 +400,14 @@ class Address:
     def __str__(self):
         return f'0x{self.address:X}'
 
-    def match(self, cursor: Cursor, _: MatchResult) -> Iterable[Cursor]:
-        if cursor.address != self.address:
-            raise PatternValueMismatch(self.address, cursor.address)
-        return [cursor]
+    def match(self, address, _: MatchResult):
+        if address != self.address:
+            raise PatternValueMismatch(self.address, address)
 
 
 class Label(ContainerBase):
-    def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
-        match_result[self.value] = cursor.address
-        return [cursor]
+    def match(self, address, match_result: MatchResult):
+        match_result[self.value] = address
 
 
 class BlockPat:
