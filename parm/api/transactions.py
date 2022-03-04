@@ -8,10 +8,12 @@ class TransactionError(Exception):
 
 
 class TransactionCommitOrderViolation(TransactionError):
-    def __init__(self, transaction, given, expected):
+    def __init__(self, transaction):
         self.transaction = transaction
-        self.given = given
-        self.expected = expected
+
+
+class UncommittedChildrenException(TransactionCommitOrderViolation):
+    pass
 
 
 class Transaction:
@@ -43,10 +45,12 @@ class Transaction:
     ):
         last = self._children.pop()
         if child is not last:
-            raise TransactionCommitOrderViolation(self, child, last)
+            raise TransactionCommitOrderViolation(self)
         self._rollback_ops.extend(child._rollback_ops)
 
     def commit(self):
+        if self._children:
+            raise UncommittedChildrenException(self)
         p = self._parent
         if p is not None:
             p._inherit(self)
