@@ -1,6 +1,11 @@
+from fnmatch import fnmatch
 from lark import Transformer, Token
 
 from parm.utils import indent
+from parm.transformers import arm
+
+from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch
+from parm.api.match_result import MatchResult
 
 
 class OpcodePat:
@@ -22,6 +27,14 @@ class OpcodePat:
         if not isinstance(other, OpcodePat):
             return False
         return self.name == other.name and self.capture == other.capture
+
+    def match(self, val, match_result: MatchResult):
+        if not isinstance(val, str):
+            raise PatternTypeMismatch(self.name, val)
+        if not fnmatch(val, self.name):
+            raise PatternValueMismatch(self.name, val)
+        if self.capture is not None:
+            match_result[self.capture] = val
 
 
 class ShiftPat:
@@ -149,12 +162,28 @@ class OperandsPat:
         return self.ops == other.ops
 
 
+class IntegerVal(ContainerBase):
+    def match(self, val, _):
+        if not isinstance(val, int):
+            raise PatternTypeMismatch(self.value, val)
+
+        if val != self.value:
+            raise PatternValueMismatch(self.value, val)
+
+
 class RegPat(ContainerBase):
-    pass
+    def match(self, val, match_result: MatchResult):
+        if not isinstance(val, arm.Reg):
+            raise PatternTypeMismatch(self.value, val)
+        self.value.match(val, match_result)
 
 
 class Reg(ContainerBase):
-    pass
+    def match(self, val, _):
+        if not isinstance(val, arm.Reg):
+            raise PatternTypeMismatch(self.value, val)
+        if self.value.lower() != val.name.lower():
+            raise PatternValueMismatch(self.value, val)
 
 
 class WildcardBase:
@@ -181,18 +210,45 @@ class WildcardBase:
 class WildcardMulti(WildcardBase):
     symbol = '*'
 
+    def match(self, val, match_result: MatchResult):
+        if isinstance(val, (int, str, type(None))):
+            if self.capture is not None:
+                match_result[self.capture] = val
+            return
+        raise PatternTypeMismatch(self, val)
+
 
 class WildcardOptional(WildcardBase):
     symbol = '?'
+
+    def match(self, val, match_result: MatchResult):
+        if isinstance(val, list):
+            raise PatternTypeMismatch(self, val)
+
+        if self.capture is not None:
+            match_result[self.capture] = val
 
 
 class WildcardSingle(WildcardBase):
     symbol = '@'
 
+    def match(self, val, match_result: MatchResult):
+        if isinstance(val, (list, type(None))):
+            raise PatternValueMismatch(self, val)
+
+        if self.capture is not None:
+            match_result[self.capture] = val
+
 
 class ImmediatePat:
     def __init__(self, value):
         self.value = value
+
+    def match(self, operand, match_result: MatchResult):
+        if not isinstance(operand, arm.Immediate):
+            raise PatternTypeMismatch(self, operand)
+
+        self.value.match(operand.value, match_result)
 
     def __repr__(self):
         return f'ImmediatePat({self.value!r})'
@@ -413,7 +469,7 @@ class ArmPatternTransformer(Transformer):
     def immediate_value(self, parts):
         (num, ) = parts
         assert isinstance(num, Token)
-        return ImmediatePat(num.value)
+        return ImmediatePat(IntegerVal(int(num.value, 0)))
 
     def lone_command(self, parts):
         return parts

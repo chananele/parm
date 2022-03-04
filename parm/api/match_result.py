@@ -1,7 +1,9 @@
-from typing import Mapping, Union, List, ContextManager
+from typing import Mapping, Union, List
 from contextlib import contextmanager
 
-from parm.api.exceptions import CaptureCollision, PatternMismatchException
+from parm.api.transactions import Transactable
+from parm.api.chaining import ChainMap, ChainStack, ChainCounter
+from parm.api.exceptions import CaptureCollision
 
 _IndexType = Union[int, str]
 
@@ -10,7 +12,7 @@ class DuplicateValueException(Exception):
     pass
 
 
-class TrackingDict(dict):
+class TrackingDict(ChainMap):
     def __setitem__(self, key, value):
         if key is None:
             return
@@ -39,10 +41,18 @@ class UndefinedVar(Exception):
         self.name = name
 
 
-class MultiMatchResult:
-    def __init__(self, parent=None):
-        self._scopes = []  # type: List[MatchResult]
+class MultiMatchResult(Transactable):
+    def __init__(self, parent=None, transaction=None):
+        super().__init__(transaction)
+
+        self._scopes = ChainStack()
         self._parent = parent  # type: MatchResult
+
+    @contextmanager
+    def transact(self):
+        with super().transact():
+            self._track_chainstack(self._scopes)
+            yield
 
     def __iter__(self):
         return iter(self._scopes)
@@ -50,38 +60,44 @@ class MultiMatchResult:
     def __len__(self):
         return len(self._scopes)
 
-    @contextmanager
     def new_scope(self):
         scope = MatchResult(self._parent)
-        self._scopes.append(scope)
-        try:
-            yield scope
-        except PatternMismatchException:
-            assert scope is self._scopes.pop(-1)
-            scope.invalidate()
-            raise
-
-    def invalidate(self):
-        for s in self._scopes:
-            s.invalidate()
+        self._scopes.push(scope)
+        return scope
 
 
-class MatchResult:
-    def __init__(self, parent=None):
-        self._scopes = {}
-        self._results = {}
-        self._scope_ix = 0
-        self._captured_vars = []  # type: List[DeclaredVar]
+class MatchResult(Transactable):
+    def __init__(self, parent=None, transaction=None):
+        super().__init__(transaction)
         self._parent = parent  # type: MatchResult
+
+        self._scopes = ChainMap()
+        self._results = ChainMap()
+        self._scope_ix = ChainCounter()
+        self._captured_vars = ChainStack()
 
         self._subs = TrackingDict()
         self._sub = TrackingDict()
 
-    def invalidate(self):
-        for scope in self._scopes.values():
-            scope.invalidate()  # This may invalidate multiple times, should be OK...
-        for var in self._captured_vars:
-            var.scope[var.name] = var
+    @staticmethod
+    def _invalidate_vars(vs):
+        for v in vs:
+            v.scope[v.name] = v
+
+    def _track_captured_vars(self):
+        vs = self._track_chainstack(self._captured_vars)
+        self._add_rollback_op(self._invalidate_vars(vs))
+
+    @contextmanager
+    def transact(self):
+        with super().transact():
+            self._track_chaincounter(self._scope_ix)
+            self._track_chainmap(self._scopes)
+            self._track_chainmap(self._results)
+            self._track_chainmap(self._subs)
+            self._track_chainmap(self._sub)
+            self._track_captured_vars()
+            yield
 
     @property
     def subs(self):
@@ -120,63 +136,33 @@ class MatchResult:
         except UndefinedVar as uv:
             var = uv.var
             var.scope[key] = value
-            self._captured_vars.append(var)
+            self._captured_vars.push(var)
 
-    @contextmanager
     def add_scope(self, scope, name=None):
-        ix = self._scope_ix
-        self._scope_ix = ix + 1
+        ix = self._scope_ix.inc()
         self._scopes[ix] = scope
         if name is not None:
             self._scopes[name] = scope
-        try:
-            yield ix
-        except PatternMismatchException:
-            scope.invalidate()
-            if name is not None:
-                del self._scopes[name]
-            del self._scopes[ix]
-            self._scope_ix = ix
-            raise
+        return ix
 
     def _add_sub(self, ix, name, scope):
         assert isinstance(scope, MatchResult)
         self._sub[ix] = scope
         self._sub[name] = scope
-        try:
-            yield
-        except PatternMismatchException:
-            del self._sub[ix]
-            del self._sub[name]
 
     def _add_subs(self, ix, name, scope):
         assert isinstance(scope, MultiMatchResult)
         self._subs[ix] = scope
         self._subs[name] = scope
-        try:
-            yield
-        except PatternMismatchException:
-            del self._subs[ix]
-            del self._subs[name]
 
-    @contextmanager
     def new_scope(self, name=None):
         scope = MatchResult(self)
-        try:
-            with self.add_scope(scope, name) as ix:
-                with self._add_sub(ix, name, scope):
-                    yield scope
-        except PatternMismatchException:
-            del scope
-            raise
+        ix = self.add_scope(scope, name)
+        self._add_sub(ix, name, scope)
+        return scope
 
-    @contextmanager
-    def new_multi_scope(self, name=None) -> ContextManager[MultiMatchResult]:
+    def new_multi_scope(self, name=None) -> MultiMatchResult:
         scope = MultiMatchResult(self)
-        try:
-            with self.add_scope(scope, name) as ix:
-                with self._add_subs(ix, name, scope):
-                    yield scope
-        except PatternMismatchException:
-            del scope
-            raise
+        ix = self.add_scope(scope, name)
+        self._add_subs(ix, name, scope)
+        return scope

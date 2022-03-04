@@ -99,19 +99,21 @@ class LineMultiPattern(LinePattern):
     @staticmethod
     def _add_pattern_match_cbs(env: Env, cursors: Iterator[Cursor], match_result: MatchResult):
         def _match_all(pattern, name=None):
-            with match_result.new_multi_scope(name) as scope:
-                for c in cursors:
-                    with scope.new_scope() as results:
-                        c.match(pattern, results)
+            ms = match_result.new_multi_scope(name)
+            for c in cursors:
+                s = ms.new_scope()
+                c.match(pattern, s)
         env.add_multi_vars(match_all=_match_all)
 
         def _match_some(pattern, name=None):
             match_count = 0
-            with match_result.new_multi_scope(name) as scope:
+            with match_result.transact():
+                ms = match_result.new_multi_scope(name)
                 for c in cursors:
                     try:
-                        with scope.new_scope() as results:
-                            c.match(pattern, results)
+                        with ms.transact():
+                            s = ms.new_scope()
+                            c.match(pattern, s)
                     except PatternMismatchException:
                         pass
                 if match_count <= 0:
@@ -120,11 +122,13 @@ class LineMultiPattern(LinePattern):
 
         def _match_single(pattern, name=None):
             matched = False
-            with match_result.new_multi_scope(name) as scope:
+            with match_result.transact():
+                ms = match_result.new_multi_scope(name)
                 for c in cursors:
                     try:
-                        with scope.new_scope() as results:
-                            c.match(pattern, results)
+                        with ms.transact():
+                            s = ms.new_scope()
+                            c.match(pattern, s)
                     except PatternMismatchException:
                         continue
                     if matched:

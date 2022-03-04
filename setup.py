@@ -7,6 +7,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'lark',
+        'chainmap',
         'pytest',
     ],
     entry_points={
