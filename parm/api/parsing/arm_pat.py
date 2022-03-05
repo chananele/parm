@@ -163,6 +163,22 @@ class ShiftedRegPat:
             ps.append(str(self.shift_pat))
         return f'ShiftedRegPat({", ".join(ps)})'
 
+    @_single_consumer
+    def consume(self, op, match_result: MatchResult):
+        if isinstance(op, arm.ShiftedReg):
+            self.reg_pat.consume([op.reg], match_result, _expect_done)
+            if self.shift_pat is None:
+                if op.shift is not None:
+                    raise PatternValueMismatch(self, op)
+            else:
+                self.shift_pat.consume([op.shift], match_result, _expect_done)
+        elif isinstance(op, arm.Reg):
+            if self.shift_pat is not None:
+                self.shift_pat.consume([None], match_result, _expect_done)
+            self.reg_pat.consume([op], match_result, _expect_done)
+        else:
+            raise PatternTypeMismatch(self, op)
+
 
 class MemMultiPat:
     def __init__(self, reg_list):
