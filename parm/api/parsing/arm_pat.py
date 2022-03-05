@@ -12,6 +12,26 @@ from parm.api.match_result import MatchResult
 from parm.api.cursor import Cursor
 
 
+def _consume_list(lst: list, operands: list, match_result: MatchResult, complete):
+    def _completer_gen(i):
+        try:
+            o = lst[i + 1]
+        except IndexError:
+            return complete
+
+        def completer(remaining):
+            o.consume(remaining, match_result, _completer_gen(i + 1))
+
+        return completer
+
+    try:
+        op = lst[0]
+    except IndexError:
+        complete(operands)
+    else:
+        op.consume(operands, match_result, _completer_gen(0))
+
+
 def _single_consumer(func):
     @wraps(func)
     def decorator(self, operands: list, match_result: MatchResult, complete):
@@ -23,6 +43,11 @@ def _single_consumer(func):
         complete(operands[1:])
 
     return decorator
+
+
+def _expect_done(rem):
+    if rem:
+        raise NotAllOperandsMatched(rem)
 
 
 class OpcodePat:
@@ -149,6 +174,12 @@ class MemMultiPat:
     def __str__(self):
         return '{{{}}}'.format(', '.join(str(r) for r in self.reg_list))
 
+    @_single_consumer
+    def consume(self, op, match_result):
+        if not isinstance(op, arm.MemMulti):
+            raise PatternTypeMismatch(self, op)
+        _consume_list(self.reg_list, op.reg_list, match_result, _expect_done)
+
 
 class RegRangePat:
     def __init__(self, start, end):
@@ -162,37 +193,26 @@ class RegRangePat:
         return f'{self.start}-{self.end}'
 
     def consume(self, operands: list, match_result: MatchResult, complete):
-        def _expect_done(rem):
-            if rem:
-                raise NotAllOperandsMatched(rem)
+        try:
+            s = operands[0]
+        except IndexError:
+            raise OperandsExhausted(self)
 
-        for i, o in enumerate(operands):
+        if not isinstance(s, arm.Reg):
+            raise PatternTypeMismatch(self, s)
+
+        self.start.consume([s], match_result, _expect_done)
+        s_index = arm.REG_INDEX[s.name]
+
+        for i, o in enumerate(operands[1:]):
             if not isinstance(o, arm.Reg):
                 raise PatternTypeMismatch(self, o)
-            try:
-                with match_result.transact():
-                    self.start.consume([o], match_result, _expect_done)
-                break
-            except PatternMismatchException:
-                pass
-        else:
-            raise PatternValueMismatch(self, operands)
-
-        if i == len(operands) - 1:
-            raise PatternValueMismatch(self, operands)
-
-        o_index = arm.REG_INDEX[o.name]
-        remainder = operands[i + 1:]
-
-        for j, r in enumerate(remainder):
-            if not isinstance(r, arm.Reg):
-                raise PatternTypeMismatch(self, r)
-            if arm.REG_INDEX[r.name] != o_index + j + 1:
+            if arm.REG_INDEX[o.name] != s_index + i + 1:
                 break
             try:
                 with match_result.transact():
-                    self.end.consume([r], match_result, _expect_done)
-                    complete(remainder[j + 1:])
+                    self.end.consume([o], match_result, _expect_done)
+                    complete(operands[i + 2:])
                     return
             except PatternMismatchException:
                 pass
@@ -216,28 +236,7 @@ class OperandsPat:
         return self.ops == other.ops
 
     def match(self, operands: list, match_result: MatchResult):
-        def _completer_gen(i):
-            def _ensure_end(r):
-                if r:
-                    raise NotAllOperandsMatched(r)
-
-            try:
-                o = self.ops[i + 1]
-            except IndexError:
-                return _ensure_end
-
-            def completer(remaining):
-                o.consume(remaining, match_result, _completer_gen(i + 1))
-
-            return completer
-
-        try:
-            op = self.ops[0]
-        except IndexError:
-            if operands:
-                raise NotAllOperandsMatched(operands)
-            return
-        op.consume(operands, match_result, _completer_gen(0))
+        _consume_list(self.ops, operands, match_result, _expect_done)
 
 
 class IntegerVal(ContainerBase):
@@ -335,11 +334,7 @@ class ImmediatePat:
         if not isinstance(op, arm.Immediate):
             raise PatternTypeMismatch(self, op)
 
-        def _sub_complete(remainder):
-            if remainder:
-                raise NotAllOperandsMatched(remainder)
-
-        self.value.consume([op.value], match_result, _sub_complete)
+        self.value.consume([op.value], match_result, _expect_done)
 
     def __repr__(self):
         return f'ImmediatePat({self.value!r})'
