@@ -82,6 +82,8 @@ class ChainCounter:
     def __init__(self, *counts):
         if not counts:
             counts = [0]
+        else:
+            counts = list(counts)
         self._counts = counts
 
     @property

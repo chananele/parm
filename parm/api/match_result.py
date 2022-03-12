@@ -3,7 +3,7 @@ from contextlib import contextmanager
 
 from parm.api.transactions import Transactable
 from parm.api.chaining import ChainMap, ChainStack, ChainCounter
-from parm.api.exceptions import CaptureCollision
+from parm.api.exceptions import CaptureCollision, TooManyMatches, NoMatches
 
 _IndexType = Union[int, str]
 
@@ -69,7 +69,7 @@ class MultiMatchResult(Transactable):
         super().__init__(transaction)
 
         self._scopes = ChainStack()
-        self._parent = parent  # type: MatchResult
+        self.parent = parent  # type: MatchResult
 
     @contextmanager
     def transact(self):
@@ -80,11 +80,14 @@ class MultiMatchResult(Transactable):
     def __iter__(self):
         return iter(self._scopes)
 
+    def __getitem__(self, item):
+        return self._scopes[item]
+
     def __len__(self):
         return len(self._scopes)
 
     def new_scope(self):
-        scope = MatchResult(self._parent)
+        scope = MatchResult(self.parent)
         self._scopes.push(scope)
         return scope
 
@@ -92,10 +95,10 @@ class MultiMatchResult(Transactable):
 class MatchResult(Transactable):
     def __init__(self, parent=None, transaction=None):
         super().__init__(transaction)
-        self._parent = parent  # type: MatchResult
+        self.parent = parent  # type: MatchResult
 
         self._scopes = ChainMap()
-        self._scope_ix = ChainCounter()
+        self._scope_ix = ChainCounter(-1)
         self._captured_vars = ChainStack()
 
         self._subs = TrackingDict()
@@ -147,9 +150,9 @@ class MatchResult(Transactable):
                 return result.val
             return result
         except KeyError:
-            if self._parent is None:
+            if self.parent is None:
                 raise
-            return self._parent[item]
+            return self.parent[item]
 
     def __setitem__(self, key, value):
         if key is None:
@@ -177,22 +180,71 @@ class MatchResult(Transactable):
 
     def _add_sub(self, ix, name, scope):
         assert isinstance(scope, MatchResult)
+        assert ix not in self._sub
+        assert name not in self._sub
         self._sub[ix] = scope
         self._sub[name] = scope
 
     def _add_subs(self, ix, name, scope):
         assert isinstance(scope, MultiMatchResult)
+        assert ix not in self._subs
+        assert name not in self._subs
         self._subs[ix] = scope
         self._subs[name] = scope
 
-    def new_scope(self, name=None):
-        scope = MatchResult(self)
+    def _add_existing_scope(self, scope, name=None):
         ix = self.add_scope(scope, name)
         self._add_sub(ix, name, scope)
+
+    def new_scope(self, name=None):
+        scope = MatchResult(self)
+        self._add_existing_scope(scope, name)
         return scope
+
+    def new_temp_scope(self):
+        return MatchResult(self)
+
+    def _add_existing_multi_scope(self, scope, name=None):
+        ix = self.add_scope(scope, name)
+        self._add_subs(ix, name, scope)
 
     def new_multi_scope(self, name=None) -> MultiMatchResult:
         scope = MultiMatchResult(self)
-        ix = self.add_scope(scope, name)
-        self._add_subs(ix, name, scope)
+        self._add_existing_multi_scope(scope, name)
         return scope
+
+    def new_temp_multi_scope(self):
+        return MultiMatchResult(self)
+
+    def merge_scope(self, scope):
+        assert isinstance(scope, MatchResult)
+        assert scope not in self._scopes
+
+        for k, v in scope._results.items():
+            self[k] = v
+
+        def _add_mapping(src_map, add_fn):
+            sorted_sub = sorted([kv for kv in src_map.items() if isinstance(kv[0], int)], key=lambda kv: kv[0])
+            name_rmap = {}
+            for name, value in src_map.items():
+                if isinstance(name, str):
+                    name_rmap[value] = name
+
+            for i, (ix, s) in enumerate(sorted_sub):
+                assert i == ix
+                name = name_rmap.get(s, None)
+                add_fn(s, name)
+
+        _add_mapping(scope._sub, self._add_existing_scope)
+        _add_mapping(scope._subs, self._add_existing_multi_scope)
+
+    def merge_multi_scope(self, multi_scope):
+        assert isinstance(multi_scope, MultiMatchResult)
+        assert multi_scope not in self._scopes
+
+        ss = list(multi_scope)
+        if len(ss) > 1:
+            raise TooManyMatches()
+        if len(ss) == 0:
+            raise NoMatches()
+        self.merge_scope(ss[0])

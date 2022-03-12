@@ -46,6 +46,8 @@ class Transaction:
         self._finish_transaction(self._perform_rollback)
 
     def __del__(self):
+        if self._parent is None:
+            return
         if self._rollback_ops:
             raise TransactionError('Transaction not committed or rolled back!')
         if self._children:

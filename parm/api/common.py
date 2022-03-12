@@ -32,8 +32,6 @@ def default_initialize(arg_name, initializer):
                 except KeyError:
                     value = None
                 if value is None:
-                    print(kwargs)
-                    print(args)
                     kwargs[arg_name] = initializer()
             else:
                 if value is None:
@@ -52,41 +50,46 @@ default_env = default_initialize('env', Env.create_default_env)
 
 @default_match_result
 def find_all(pattern, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
+    ms = match_result.new_multi_scope()
     for c in cursors:
-        try:
-            with match_result.transact():
-                c.match(pattern, match_result)
-                yield c
-        except PatternMismatchException:
-            pass
+        scope = ms.new_scope()
+        with scope.transact():
+            try:
+                with scope.transact():
+                    c.match(pattern, scope)
+                    yield c
+            except PatternMismatchException:
+                pass
 
 
 @default_match_result
-def find_first(pattern, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
+def find_first(pattern, cursors: Iterable[Cursor], match_result: MatchResult) -> Cursor:
     for c in cursors:
         try:
             with match_result.transact():
                 c.match(pattern, match_result)
-                yield c
-                return
+                return c
         except PatternMismatchException:
             pass
-
     raise NoMatches()
 
 
 @default_match_result
-def find_single(pattern, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
-    match = None
-    for c in cursors:
-        try:
-            with match_result.transact():
-                c.match(pattern, match_result)
-        except PatternMismatchException:
-            continue
-        if match is not None:
-            raise TooManyMatches()
-        match = c
-    if match is None:
-        raise NoMatches()
-    yield match
+def find_single(pattern, cursors: Iterable[Cursor], match_result: MatchResult) -> Cursor:
+    with match_result.transact():
+        ms = match_result.new_temp_multi_scope()
+        match = None
+        for c in cursors:
+            try:
+                with ms.transact():
+                    scope = ms.new_scope()
+                    c.match(pattern, scope)
+            except PatternMismatchException:
+                continue
+            if match is not None:
+                raise TooManyMatches()
+            match = c
+        if match is None:
+            raise NoMatches()
+        match_result.merge_multi_scope(ms)
+        return match
