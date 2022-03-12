@@ -110,7 +110,7 @@ class MatchResult(Transactable):
 
     def _track_captured_vars(self):
         vs = self._track_chainstack(self._captured_vars)
-        self._add_rollback_op(self._invalidate_vars(vs))
+        self._add_rollback_op(lambda: self._invalidate_vars(vs))
 
     @contextmanager
     def transact(self):

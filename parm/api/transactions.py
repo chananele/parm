@@ -98,17 +98,19 @@ class Transactable:
                 self._current_transaction.commit()
 
     def _add_rollback_op(self, op):
+        assert op is not None
+        assert callable(op)
         self._current_transaction.add_rollback_op(op)
 
     def _track_chainmap(self, cm: ChainMap):
         m = cm.push_map()
-        self._add_rollback_op(cm.pop_map(m))
+        self._add_rollback_op(lambda: cm.pop_map(m))
 
     def _track_chainstack(self, cs: ChainStack):
         s = cs.push_stack()
-        self._add_rollback_op(cs.pop_stack(s))
+        self._add_rollback_op(lambda: cs.pop_stack(s))
         return s
 
     def _track_chaincounter(self, cc: ChainCounter):
         ix = cc.push_counter()
-        self._add_rollback_op(cc.pop_counter(ix))
+        self._add_rollback_op(lambda: cc.pop_counter(ix))
