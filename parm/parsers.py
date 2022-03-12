@@ -13,7 +13,7 @@ def create_parser(path, rel_to, start, postlex=None, parser='earley', lexer=None
 
 
 def create_arm_parser():
-    return create_parser('lark_files/arm.lark', rel_to=__file__, start='line')
+    return create_parser('lark_files/arm.lark', rel_to=__file__, start='block')
 
 
 def create_arm_pattern_parser():

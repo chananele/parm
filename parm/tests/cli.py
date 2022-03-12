@@ -49,7 +49,7 @@ def load_arm_pattern_trees(parser):
 def test_arm_patterns():
     parser = parsers.create_arm_pattern_parser()
     trees = load_arm_pattern_trees(parser)
-    transformer = arm_pattern.ArmPatternTransformer()
+    transformer = arm_pat.ArmPatternTransformer()
     for tree in trees:
         result = transformer.transform(tree)
         print('----------------------------------')

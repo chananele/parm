@@ -6,6 +6,7 @@ from lark import Transformer, Token
 
 from parm.api.parsing import arm
 from parm.api.parsing.utils import indent
+from parm.api.common import default_match_result
 from parm.api.exceptions import PatternMismatchException, OperandsExhausted
 from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMatches, NotAllOperandsMatched
 from parm.api.match_result import MatchResult
@@ -39,7 +40,7 @@ def _single_consumer(func):
             op0 = operands[0]
         except IndexError:
             raise OperandsExhausted(self)
-        func(op0, match_result)
+        func(self, op0, match_result)
         complete(operands[1:])
 
     return decorator
@@ -140,7 +141,9 @@ class ContainerBase:
 
 
 class CommandPat(ContainerBase):
-    pass
+    @default_match_result
+    def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
+        return self.value.match(cursors, match_result)
 
 
 class MemOffsetPat(ContainerBase):
@@ -251,6 +254,7 @@ class OperandsPat:
             return False
         return self.ops == other.ops
 
+    @default_match_result
     def match(self, operands: list, match_result: MatchResult):
         _consume_list(self.ops, operands, match_result, _expect_done)
 
@@ -271,7 +275,8 @@ class RegPat(ContainerBase):
 
 class Reg(ContainerBase):
     @_single_consumer
-    def consume(self, op, _: MatchResult):
+    @default_match_result
+    def consume(self, op, match_result: MatchResult):
         if not isinstance(op, arm.Reg):
             raise PatternTypeMismatch(self.value, op)
         if self.value.lower() != op.name.lower():
@@ -298,6 +303,7 @@ class WildcardBase:
             return self.symbol
         return f'{self.symbol}:{cap}'
 
+    @default_match_result
     def match(self, value, match_result: MatchResult):
         match_result[self.capture] = value
 
@@ -305,6 +311,7 @@ class WildcardBase:
 class WildcardMulti(WildcardBase):
     symbol = '*'
 
+    @default_match_result
     def consume(self, operands, match_result: MatchResult, complete):
         for i in range(len(operands) + 1):
             with match_result.transact():
@@ -316,6 +323,7 @@ class WildcardMulti(WildcardBase):
 class WildcardOptional(WildcardBase):
     symbol = '?'
 
+    @default_match_result
     def consume(self, operands: list, match_result: MatchResult, complete):
         try:
             op0 = operands[0]
@@ -445,6 +453,7 @@ class BlockPat:
             return False
         return self.lines == other.lines
 
+    @default_match_result
     def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
         cursors = [cursor]
         for line in self.lines:
@@ -470,6 +479,7 @@ class InstructionPat:
             return False
         return self.opcode_pat == other.opcode_pat and self.operand_pats == other.operand_pats
 
+    @default_match_result
     def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
         next_cursors = []
         for c in cursors:

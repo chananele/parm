@@ -85,11 +85,14 @@ mem_single_operand: reg [_WS] "," [_WS] "[" [_WS] reg [_WS] ["," [_WS] immediate
 mem_multi_operand: reg [_WS] "," [_WS] "{" [_WS] reg_list [_WS] "}"
 stack_mem_multi_operand: "{" [_WS] reg_list [_WS] "}"
 
+branch_ind_operands: reg
+branch_rel_operands: address
+
 instruction: OPCODE_MEM_SINGLE _WS mem_single_operand [_WS]
            | OPCODE_MEM_MULTI _WS mem_multi_operand [_WS]
            | OPCODE_STACK_MEM_MULTI _WS stack_mem_multi_operand [_WS]
-           | OPCODE_BRANCH_REL _WS address [_WS]
-           | OPCODE_BRANCH_IND _WS reg [_WS]
+           | OPCODE_BRANCH_REL _WS branch_rel_operands [_WS]
+           | OPCODE_BRANCH_IND _WS branch_ind_operands [_WS]
            | OPCODE_MOV _WS mov_operands [_WS]
            | OPCODE_ARITHMETIC _WS arithmetic_operands [_WS]
 
@@ -101,9 +104,13 @@ address: NUM
 
 line: [_WS] [address [_WS] ":" [_WS]] instruction [_WS]
 
+block: [_AWS] line (_NL [_AWS] line)* [_AWS]
+
 %import common.INT
 %import common.HEXDIGIT
 %import common.DIGIT
 %import common.WS_INLINE -> _WS
+%import common.WS -> _AWS
+%import common.NEWLINE -> _NL
 
 %declare _POST_OPCODE

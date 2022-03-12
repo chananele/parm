@@ -21,13 +21,13 @@ class Program:
             hook(self)
 
     def find_all(self, pattern):
-        find_all(pattern, cursors=self.cursors)
+        return find_all(pattern, cursors=self.cursors)
 
     def find_first(self, pattern):
-        find_first(pattern, cursors=self.cursors)
+        return find_first(pattern, cursors=self.cursors)
 
     def find_single(self, pattern):
-        find_single(pattern, cursors=self.cursors)
+        return find_single(pattern, cursors=self.cursors)
 
     def find_last(self, pattern):
         return find_first(pattern, cursors=reversed(self.cursors))

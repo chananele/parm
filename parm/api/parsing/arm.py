@@ -243,7 +243,29 @@ class MemAccessPostIndexed(MemAccess):
         return f'MemAccessPostIndexed({self.reg!r}, {self.offset!r})'
 
 
+class Block:
+    def __init__(self, lines):
+        self.lines = lines
+
+    def __iter__(self):
+        return iter(self.lines)
+
+    def __str__(self):
+        return '\n'.join(str(line) for line in self)
+
+    def __repr__(self):
+        return f'Block({self.lines!r})'
+
+    def __eq__(self, other):
+        if not isinstance(other, Block):
+            return False
+        return self.lines == other.lines
+
+
 class ArmTransformer(Transformer):
+    def block(self, lines):
+        return Block(lines)
+
     def line(self, parts):
         address, instruction = parts
         return Line(instruction, address)
@@ -268,6 +290,16 @@ class ArmTransformer(Transformer):
 
     def mem_single_operand(self, operands):
         return operands
+
+    def branch_ind_operands(self, operands):
+        (reg, ) = operands
+        assert isinstance(reg, Reg)
+        return [reg]
+
+    def branch_rel_operands(self, operands):
+        (address, ) = operands
+        assert isinstance(address, Address)
+        return [address]
 
     def reg(self, parts):
         (name, ) = parts

@@ -15,7 +15,7 @@ class Cursor:
     def address(self):
         raise NotImplementedError()
 
-    def match(self, pattern, match_results: MatchResult = None) -> MatchResult:
+    def match(self, pattern, match_result: MatchResult = None) -> MatchResult:
         raise NotImplementedError()
 
     def next(self):
@@ -42,7 +42,7 @@ class TerminalCursor(Cursor):
     def instruction(self):
         raise NoMoreInstructions()
 
-    def match(self, pattern, match_results: MatchResult = None) -> MatchResult:
+    def match(self, pattern, match_result: MatchResult = None) -> MatchResult:
         raise NoMoreInstructions()
 
     def next(self):
