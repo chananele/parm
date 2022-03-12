@@ -32,6 +32,8 @@ def default_initialize(arg_name, initializer):
                 except KeyError:
                     value = None
                 if value is None:
+                    print(kwargs)
+                    print(args)
                     kwargs[arg_name] = initializer()
             else:
                 if value is None:
@@ -50,13 +52,10 @@ default_env = default_initialize('env', Env.create_default_env)
 
 @default_match_result
 def find_all(pattern, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
-    if match_result is None:
-        match_result = MatchResult()
-
     for c in cursors:
         try:
             with match_result.transact():
-                c.match(pattern)
+                c.match(pattern, match_result)
                 yield c
         except PatternMismatchException:
             pass
@@ -64,13 +63,10 @@ def find_all(pattern, cursors: Iterable[Cursor], match_result: MatchResult) -> I
 
 @default_match_result
 def find_first(pattern, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
-    if match_result is None:
-        match_result = MatchResult()
-
     for c in cursors:
         try:
             with match_result.transact():
-                c.match(pattern)
+                c.match(pattern, match_result)
                 yield c
                 return
         except PatternMismatchException:
@@ -81,9 +77,6 @@ def find_first(pattern, cursors: Iterable[Cursor], match_result: MatchResult) ->
 
 @default_match_result
 def find_single(pattern, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
-    if match_result is None:
-        match_result = MatchResult()
-
     match = None
     for c in cursors:
         try:

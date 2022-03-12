@@ -404,9 +404,11 @@ class AddressPat(ContainerBase):
     def __init__(self, value):
         super().__init__(value)
 
-    def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
-        self.value.match(cursor.address, match_result)
-        return [cursor]
+    @default_match_result
+    def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
+        for cursor in cursors:
+            self.value.match(cursor.address, match_result)
+        return cursors
 
 
 class Address:
