@@ -303,6 +303,13 @@ class WildcardBase:
             return self.symbol
         return f'{self.symbol}:{cap}'
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        if self.capture != other.capture:
+            return False
+        return True
+
     @default_match_result
     def match(self, value, match_result: MatchResult):
         match_result[self.capture] = value
@@ -410,6 +417,10 @@ class AddressPat(ContainerBase):
             self.value.match(cursor.address, match_result)
         return cursors
 
+    @_single_consumer
+    def consume(self, op, match_result: MatchResult):
+        self.value.match(op, match_result)
+
 
 class Address:
     def __init__(self, address):
@@ -509,7 +520,8 @@ class ArmPatternTransformer(Transformer):
 
     def _exact_opcode(self, parts):
         (pat,) = parts
-        return OpcodePat(pat)
+        assert isinstance(pat, Token)
+        return OpcodePat(pat.value)
 
     exact_mov = _exact_opcode
     exact_arithmetic = _exact_opcode

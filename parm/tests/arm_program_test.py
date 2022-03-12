@@ -1,7 +1,7 @@
 from unittest import TestCase
 import pytest
 
-from parm.api.exceptions import TooManyMatches
+from parm.api.exceptions import TooManyMatches, CaptureCollision
 from parm.api.match_result import MatchResult
 from parm.programs import snippet
 
@@ -44,3 +44,21 @@ class ArmPatternTest(TestCase):
         with pytest.raises(TooManyMatches):
             with mr.transact():
                 self.program.find_single(pattern, match_result=mr)
+
+    def test_capture_collision(self):
+        self.program.add_code_block('0x1000: bl 0x2000')
+        self.program.add_code_block('0x3000: bl 0x3000')
+        self.program.add_code_block('0x4000: bl 0x4000')
+        pattern = self.program.create_pattern('test: bl @:test')
+        mr = MatchResult()
+        with pytest.raises(CaptureCollision):
+            with mr.transact():  # Required to ensure the failed match does not dirty the match_result...
+                self.program.create_cursor(0x1000).match(pattern, match_result=mr)
+
+        self.program.create_cursor(0x3000).match(pattern, match_result=mr)
+        assert mr['test'].address == 0x3000
+
+        with pytest.raises(CaptureCollision):
+            # Even though it matches the pattern, "test" is already bound to 0x3000
+            self.program.create_cursor(0x4000).match(pattern, match_result=mr)
+

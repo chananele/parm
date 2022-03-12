@@ -29,3 +29,11 @@ class ArmPatternTest(TestCase):
     def test_blx_tree(self):
         expected = BlockPat([CommandPat(InstructionPat(OpcodePat('blx*'), OperandsPat([RegPat(Reg('r0'))])))])
         assert self._pt('blx* r0') == expected
+
+    def test_bl_tree(self):
+        expected = BlockPat([
+            AddressPat(Label('test')),
+            CommandPat(InstructionPat(OpcodePat('bl'), OperandsPat([AddressPat(WildcardSingle('test'))])))
+        ])
+        pat = self._pt('test: bl @:test')
+        assert pat == expected
