@@ -27,6 +27,7 @@
 1
 """
 
+import builtins
 from inspect import unwrap
 try:
     # Python 3
@@ -42,15 +43,43 @@ from collections.abc import Mapping
 from parm.api.chaining import ChainMap
 
 
+class ResolutionCache:
+    def __init__(self):
+        self._cache = {}
+        self._in_progress = []
+
+    def clear(self):
+        self._cache = {}
+        self._in_progress = []
+
+    def _mark_in_progress(self, name):
+        assert name not in self._in_progress
+        assert name not in self._cache
+        self._in_progress.append(name)
+
+    def __getitem__(self, item):
+        try:
+            return self._cache[item]
+        except KeyError:
+            self._mark_in_progress(item)
+            raise
+
+    def __setitem__(self, key, value):
+        assert key not in self._cache
+        self._in_progress.remove(key)
+        self._cache[key] = value
+
+
 class Fixture:
-    def __init__(self, ns, callback, *args, **kwargs):
+    def __init__(self, ns, name, callback, *args, **kwargs):
         self.ns = ns  # type: EmbeddedLocalNS
+        self.name = name
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
 
     def __call__(self):
-        return self.ns.call_fixture(self)
+        return self.ns.resolve_fixture(self.name)
 
 
 class EmbeddedLocalNS(Mapping):
@@ -70,20 +99,35 @@ class EmbeddedLocalNS(Mapping):
 
         self._maps = (self._vars, self._globals, self._fixtures)
 
+    @property
+    def resolution_cache(self) -> ResolutionCache:
+        try:
+            # noinspection PyGlobalUndefined
+            global _resolution_cache
+            return _resolution_cache
+        except NameError:
+            raise RuntimeError('Must be called from evaluation context!')
+
+    def get_resolved(self, name):
+        maps = (self.resolution_cache, self._vars, self._globals)
+        for m in maps:
+            try:
+                return m[name]
+            except KeyError:
+                pass
+        raise KeyError(name)
+
     def resolve_fixture(self, name):
         try:
-            return self._vars[name]
-        except KeyError:
-            pass
-
-        try:
-            return self._globals[name]
+            return self.get_resolved(name)
         except KeyError:
             pass
 
         fixture = self._fixtures[name]
         assert isinstance(fixture, Fixture)
-        return self.call_fixture(fixture)
+        result = self.call_fixture(fixture)
+        self.resolution_cache[name] = result
+        return result
 
     def call_fixture(self, fixture):
         func = fixture.callback
@@ -132,17 +176,20 @@ class EmbeddedLocalNS(Mapping):
     def clone(self):
         return EmbeddedLocalNS(self._fixtures.copy(), self._vars.copy(), self._globals.copy())
 
+    def _prepare_embedded_context(self):
+        _globals = dict(self._globals)
+        exec('import builtins; builtins._resolution_cache = cache', _globals, {'cache': ResolutionCache()})
+        assert '__builtins__' in _globals
+        assert '_resolution_cache' in _globals['__builtins__']
+        return _globals, self
+
     def execute(self, code):
-        exec(code, dict(self._globals), self)
+        _globals, _locals = self._prepare_embedded_context()
+        exec(code, _globals, _locals)
 
     def evaluate(self, code):
-        try:
-            return eval(code, dict(self._globals), self)
-        except Exception:
-            import traceback
-            traceback.print_stack()
-            print(self)
-            raise
+        _globals, _locals = self._prepare_embedded_context()
+        return eval(code, _globals, _locals)
 
     def set_global(self, key, value):
         self._globals[key] = value
@@ -165,7 +212,7 @@ class EmbeddedLocalNS(Mapping):
     def set_fixture(self, key, callback, *args, **kwargs):
         if key in self._vars:
             raise KeyError(f'Var "{key}" already exists!')
-        self._fixtures[key] = Fixture(self, callback, *args, **kwargs)
+        self._fixtures[key] = Fixture(self, key, callback, *args, **kwargs)
 
     def add_fixture(self, key, callback, *args, **kwargs):
         if key in self._fixtures:

@@ -241,7 +241,6 @@ match = prg.create_cursor(0).match("""
     !xrefs_to
     BL  @:reset_logic  // Filter out any jumps (as opposed to calls) 
     
-    %var result_reg
     %pattern p {
         // If not all BLs to `reset_logic_impl` immediately store
         // R0 in the same register after returning, the entire 
@@ -250,10 +249,10 @@ match = prg.create_cursor(0).match("""
         LDR @:other_reg, R5
     }
     
-    $match_some(p)
+    $match_some(p, cursors, name='x', unique=('result_reg', ))
 """)
 print(match['result_reg'])
-s = match.subs[0]
+s = match.subs['x']
 for m in s:
     print(m['other_reg'])
 ```
