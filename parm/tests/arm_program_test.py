@@ -62,28 +62,20 @@ class ArmPatternTest(TestCase):
             # Even though it matches the pattern, "test" is already bound to 0x3000
             self.program.create_cursor(0x4000).match(pattern, match_result=mr)
 
-    def test_basic_code_lines(self):
+    def test_uni_code_line(self):
         self.program.add_code_block("""
             0x2000: mov r0, r1
-            0x2004: mov r0, r2
+                    mov r0, r2
+                    ldr r4, [r0]
+                    bl  0x8000
             """)
         c = self.program.create_cursor(0x2000)
 
-        env = self.program.env
-        env.add_uni_fixture('add_next', lambda cursor: [cursor, cursor.next()])
-
-        p1 = self.program.create_pattern("""
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
             mov r0, @
-            !add_next
-            $expect(len(cursors) == 2)
+            !skip(2)
+            bl  @:target
         """)
-        p2 = self.program.create_pattern("""
-            mov r0, @
-            !add_next
-            $expect(len(cursors) == 3)
-        """)
-
-        c.match(p1)
-
-        with pytest.raises(ExpectFailure):
-            c.match(p2)
+        c.match(pattern, match_result=mr)
+        assert mr['target'].address == 0x8000

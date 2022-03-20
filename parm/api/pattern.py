@@ -3,7 +3,7 @@ from typing import Iterable
 from parm.api.common import default_match_result
 from parm.api.env import Env
 from parm.api.cursor import Cursor
-from parm.api.exceptions import NoMatches, PatternMismatchException, TooManyMatches, ExpectFailure
+from parm.api.exceptions import NoMatches
 from parm.api.match_result import MatchResult
 
 
@@ -25,10 +25,17 @@ class LineUniPattern(LinePattern):
     def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
         next_cursors = []
         for c in cursors:
+            next_cursor = c
+
+            def set_next_cursor(nc):
+                nonlocal next_cursor
+                next_cursor = nc
+
             with env.snapshot():
-                env.add_uni_globals(cursor=c, match_result=match_result)
-                result = env.run_uni_code(self.code)
-                next_cursors.extend(result)
+                env.add_uni_globals(cursor=c, match_result=match_result, set_next_cursor=set_next_cursor)
+                env.run_uni_code(self.code)
+
+            next_cursors.append(next_cursor)
         return next_cursors
 
 

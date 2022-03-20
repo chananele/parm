@@ -94,8 +94,8 @@ class Env:
         for k, v in kwargs.items():
             self.add_multi_global(k, v)
 
-    def run_uni_code(self, code):
-        return self._uni_ns.evaluate(code)
+    def run_uni_code(self, code, ns=None):
+        return self._uni_ns.evaluate(code, ns)
 
-    def run_multi_code(self, code):
-        return self._multi_ns.evaluate(code)
+    def run_multi_code(self, code, ns=None):
+        return self._multi_ns.evaluate(code, ns)

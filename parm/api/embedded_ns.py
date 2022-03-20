@@ -190,19 +190,24 @@ class EmbeddedLocalNS(Mapping):
     def clone(self):
         return EmbeddedLocalNS(self._fixtures.copy(), self._vars.copy(), self._globals.copy())
 
-    def _prepare_embedded_context(self):
-        _globals = dict(self._globals)
-        exec('import builtins; builtins._resolution_cache = cache', _globals, {'cache': ResolutionCache()})
-        assert '__builtins__' in _globals
-        assert '_resolution_cache' in _globals['__builtins__']
-        return _globals, self
+    def _prepare_embedded_context(self, ns=None):
+        if ns is not None:
+            assert isinstance(ns, dict)
+        else:
+            ns = {}
+        ns.update(self._globals)
+
+        exec('import builtins; builtins._resolution_cache = cache', ns, {'cache': ResolutionCache()})
+        assert '__builtins__' in ns
+        assert '_resolution_cache' in ns['__builtins__']
+        return ns, self
 
     def execute(self, code):
         _globals, _locals = self._prepare_embedded_context()
         exec(code, _globals, _locals)
 
-    def evaluate(self, code):
-        _globals, _locals = self._prepare_embedded_context()
+    def evaluate(self, code, ns=None):
+        _globals, _locals = self._prepare_embedded_context(ns)
         return eval(code, _globals, _locals)
 
     def set_global(self, key, value):
@@ -265,8 +270,15 @@ class EmbeddedLocalNS(Mapping):
         try:
             return self._vars[item]
         except KeyError:
-            fixture = self._fixtures[item]
-            return fixture()
+            pass
+
+        try:
+            return self._funcs[item]
+        except KeyError:
+            pass
+
+        fixture = self._fixtures[item]
+        return fixture()
 
     def __setitem__(self, key, value):
         if key in self._fixtures:
