@@ -12,6 +12,7 @@ from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMat
 from parm.api.match_result import MatchResult
 from parm.api.env import Env
 from parm.api.cursor import Cursor
+from parm.api.pattern import LineUniPattern, LineMultiPattern, BlockPattern
 
 
 def _consume_list(lst: list, operands: list, env: Env, match_result: MatchResult, complete):
@@ -386,7 +387,11 @@ class CodeLine:
         raise NotImplementedError()
 
     def __init__(self, code):
-        self.code = code
+        self._code = code
+
+    @property
+    def code(self):
+        return self._code
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.code!r})'
@@ -400,29 +405,12 @@ class CodeLine:
         return self.code == other.code
 
 
-class UniCodeLine(CodeLine):
+class UniCodeLine(CodeLine, LineUniPattern):
     prefix = '!'
 
-    @default_match_result
-    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
-        next_cursors = []
-        for c in cursors:
-            with env.snapshot():
-                env.add_uni_globals(match_result=match_result, cursor=c)
-                print('unins', env._uni_ns)
-                result = env.run_uni_code(self.code)
-                next_cursors.extend(result)
-        return next_cursors
 
-
-class MultiCodeLine(CodeLine):
+class MultiCodeLine(CodeLine, LineMultiPattern):
     prefix = '$'
-
-    @default_match_result
-    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
-        with env.snapshot():
-            env.add_multi_globals(match_result=match_result, cursors=cursors)
-            return env.run_multi_code(self.code)
 
 
 class AddressPat(ContainerBase):
@@ -460,9 +448,13 @@ class Label(ContainerBase):
         match_result[self.value] = address
 
 
-class BlockPat:
+class BlockPat(BlockPattern):
     def __init__(self, lines):
-        self.lines = lines
+        self._lines = lines
+
+    @property
+    def lines(self):
+        return self._lines
 
     def __repr__(self):
         return f'BlockPat({self.lines!r})'
@@ -483,15 +475,6 @@ class BlockPat:
         if not isinstance(other, BlockPat):
             return False
         return self.lines == other.lines
-
-    @default_match_result
-    def match(self, cursor: Cursor, env: Env, match_result: MatchResult) -> Iterable[Cursor]:
-        cursors = [cursor]
-        for line in self.lines:
-            if not cursors:
-                raise NoMatches()
-            cursors = line.match(cursors, env, match_result)
-        return cursors
 
 
 class InstructionPat:

@@ -27,7 +27,6 @@
 1
 """
 
-import builtins
 from inspect import unwrap
 try:
     # Python 3
@@ -82,8 +81,18 @@ class Fixture:
         return self.ns.resolve_fixture(self.name)
 
 
+class Function:
+    def __init__(self, ns, name, callback):
+        self.ns = ns  # type: EmbeddedLocalNS
+        self.name = name
+        self.callback = callback
+
+    def __call__(self, *args, **kwargs):
+        self.ns.call_func(self.callback, *args, **kwargs)
+
+
 class EmbeddedLocalNS(Mapping):
-    def __init__(self, _fixtures=None, _vals=None, _globals=None):
+    def __init__(self, _fixtures=None, _vals=None, _globals=None, _funcs=None):
         if _vals is None:
             _vals = ChainMap()
 
@@ -93,9 +102,13 @@ class EmbeddedLocalNS(Mapping):
         if _fixtures is None:
             _fixtures = ChainMap()
 
+        if _funcs is None:
+            _funcs = ChainMap()
+
         self._fixtures = _fixtures
         self._vars = _vals
         self._globals = _globals
+        self._funcs = _funcs
 
         self._maps = (self._vars, self._globals, self._fixtures)
 
@@ -129,11 +142,7 @@ class EmbeddedLocalNS(Mapping):
         self.resolution_cache[name] = result
         return result
 
-    def call_fixture(self, fixture):
-        func = fixture.callback
-        args = fixture.args
-        kwargs = fixture.kwargs
-
+    def call_func(self, func, *args, **kwargs):
         arg_spec = getfullargspec(unwrap(func))
         for arg_name in arg_spec.args:
             arg_ix = arg_spec.args.index(arg_name)
@@ -146,6 +155,12 @@ class EmbeddedLocalNS(Mapping):
                     arg = self.resolve_fixture(arg_name)
                     kwargs[arg_name] = arg
         return func(*args, **kwargs)
+
+    def call_fixture(self, fixture):
+        func = fixture.callback
+        args = fixture.args
+        kwargs = fixture.kwargs
+        return self.call_func(func, *args, **kwargs)
 
     def _take_snapshot(self):
         snapshot = tuple([{} for _ in self._maps])
@@ -170,7 +185,6 @@ class EmbeddedLocalNS(Mapping):
 
     def __iter__(self):
         yield from self._vars
-        yield from self._globals
         yield from self._fixtures
 
     def clone(self):
@@ -202,6 +216,8 @@ class EmbeddedLocalNS(Mapping):
     def set_var(self, key, value):
         if key in self._fixtures:
             raise KeyError(f'Fixture "{key}" already exists!')
+        if key in self._funcs:
+            raise KeyError(f'Function "{key}" already exists!')
         self._vars[key] = value
 
     def add_var(self, key, value):
@@ -209,9 +225,23 @@ class EmbeddedLocalNS(Mapping):
             raise KeyError(f'Var "{key}" already exists!')
         self.set_var(key, value)
 
+    def set_func(self, name, callback):
+        if name in self._vars:
+            raise KeyError(f'Var "{name}" already exists!')
+        if name in self._fixtures:
+            raise KeyError(f'Fixture "{name}" already exists!')
+        self._funcs[name] = Function(self, name, callback)
+
+    def add_func(self, name, callback):
+        if name in self._funcs:
+            raise KeyError(f'Func "{name}" already exists!')
+        self.set_func(name, callback)
+
     def set_fixture(self, key, callback, *args, **kwargs):
         if key in self._vars:
             raise KeyError(f'Var "{key}" already exists!')
+        if key in self._funcs:
+            raise KeyError(f'Function "{key}" already exists!')
         self._fixtures[key] = Fixture(self, key, callback, *args, **kwargs)
 
     def add_fixture(self, key, callback, *args, **kwargs):

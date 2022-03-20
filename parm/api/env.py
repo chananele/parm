@@ -48,6 +48,20 @@ class Env:
     def add_uni_var(self, name, value):
         self._uni_ns.add_var(name, value)
 
+    def add_uni_func(self, name, callback):
+        self._uni_ns.add_func(name, callback)
+
+    def add_uni_funcs(self, **kwargs):
+        for name, callback in kwargs.items():
+            self.add_uni_func(name, callback)
+
+    def add_multi_func(self, name, callback):
+        self._multi_ns.add_func(name, callback)
+
+    def add_multi_funcs(self, **kwargs):
+        for name, callback in kwargs.items():
+            self.add_multi_func(name, callback)
+
     def add_multi_var(self, name, value):
         self._multi_ns.add_var(name, value)
 
