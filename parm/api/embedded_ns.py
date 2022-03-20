@@ -9,7 +9,7 @@
 ...         self.v = 0
 >>> z = AutoInc()
 >>> x = EmbeddedLocalNS()
->>> x.add_magic('i', z.get_inc)
+>>> x.add_fixture('i', z.get_inc)
 >>> print(x.evaluate('i'))
 1
 >>> print(x.evaluate('i'))
@@ -19,7 +19,7 @@
 >>> print(x.evaluate('i * 2'))
 10
 
->>> x.add_magic('reset', lambda n: n.reset(), z)
+>>> x.add_fixture('reset', lambda n: n.reset(), z)
 >>> print(x.evaluate('i'))
 6
 >>> x.execute('reset')
@@ -27,49 +27,122 @@
 1
 """
 
+from inspect import unwrap
+try:
+    # Python 3
+    from inspect import getfullargspec
+except ImportError:
+    # Python 2, use inspect.getargspec instead
+    # this is the same function really, without support for annotations
+    # and keyword-only arguments
+    from inspect import getargspec as getfullargspec
+
+from contextlib import contextmanager
 from collections.abc import Mapping
+from parm.api.chaining import ChainMap
 
 
-class Magic:
-    def __init__(self, callback, *args, **kwargs):
+class Fixture:
+    def __init__(self, ns, callback, *args, **kwargs):
+        self.ns = ns  # type: EmbeddedLocalNS
         self.callback = callback
         self.args = args
         self.kwargs = kwargs
 
     def __call__(self):
-        return self.callback(*self.args, **self.kwargs)
+        return self.ns.call_fixture(self)
 
 
 class EmbeddedLocalNS(Mapping):
-    def __init__(self, _magics=None, _vals=None, _globals=None):
-        if _magics is None:
-            _magics = {}
-
+    def __init__(self, _fixtures=None, _vals=None, _globals=None):
         if _vals is None:
-            _vals = {}
+            _vals = ChainMap()
 
         if _globals is None:
-            _globals = {}
+            _globals = ChainMap()
 
-        self._magics = _magics
+        if _fixtures is None:
+            _fixtures = ChainMap()
+
+        self._fixtures = _fixtures
         self._vars = _vals
         self._globals = _globals
 
+        self._maps = (self._vars, self._globals, self._fixtures)
+
+    def resolve_fixture(self, name):
+        try:
+            return self._vars[name]
+        except KeyError:
+            pass
+
+        try:
+            return self._globals[name]
+        except KeyError:
+            pass
+
+        fixture = self._fixtures[name]
+        assert isinstance(fixture, Fixture)
+        return self.call_fixture(fixture)
+
+    def call_fixture(self, fixture):
+        func = fixture.callback
+        args = fixture.args
+        kwargs = fixture.kwargs
+
+        arg_spec = getfullargspec(unwrap(func))
+        for arg_name in arg_spec.args:
+            arg_ix = arg_spec.args.index(arg_name)
+            try:
+                args[arg_ix]
+            except IndexError:
+                try:
+                    kwargs[arg_name]
+                except KeyError:
+                    arg = self.resolve_fixture(arg_name)
+                    kwargs[arg_name] = arg
+        return func(*args, **kwargs)
+
+    def _take_snapshot(self):
+        snapshot = tuple([{} for _ in self._maps])
+        for n, m in zip(self._maps, snapshot):
+            n.push_map(m)
+        return snapshot
+
+    def _restore_snapshot(self, snapshot):
+        for n, m in zip(self._maps, snapshot):
+            n.pop_map(m)
+
+    @contextmanager
+    def snapshot(self):
+        snap = self._take_snapshot()
+        try:
+            yield
+        finally:
+            self._restore_snapshot(snap)
+
     def __len__(self):
-        return len(self._magics) + len(self._vars)
+        return len(self._fixtures) + len(self._vars)  # Intentionally leave out globals
 
     def __iter__(self):
         yield from self._vars
-        yield from self._magics
+        yield from self._globals
+        yield from self._fixtures
 
     def clone(self):
-        return EmbeddedLocalNS(self._magics.copy(), self._vars.copy(), self._globals.copy())
+        return EmbeddedLocalNS(self._fixtures.copy(), self._vars.copy(), self._globals.copy())
 
     def execute(self, code):
-        exec(code, self._globals, self)
+        exec(code, dict(self._globals), self)
 
     def evaluate(self, code):
-        return eval(code, self._globals, self)
+        try:
+            return eval(code, dict(self._globals), self)
+        except Exception:
+            import traceback
+            traceback.print_stack()
+            print(self)
+            raise
 
     def set_global(self, key, value):
         self._globals[key] = value
@@ -80,8 +153,8 @@ class EmbeddedLocalNS(Mapping):
         self.set_global(key, value)
 
     def set_var(self, key, value):
-        if key in self._magics:
-            raise KeyError(f'Magic "{key}" already exists!')
+        if key in self._fixtures:
+            raise KeyError(f'Fixture "{key}" already exists!')
         self._vars[key] = value
 
     def add_var(self, key, value):
@@ -89,38 +162,48 @@ class EmbeddedLocalNS(Mapping):
             raise KeyError(f'Var "{key}" already exists!')
         self.set_var(key, value)
 
-    def set_magic(self, key, callback, *args, **kwargs):
+    def set_fixture(self, key, callback, *args, **kwargs):
         if key in self._vars:
             raise KeyError(f'Var "{key}" already exists!')
-        self._magics[key] = Magic(callback, *args, **kwargs)
+        self._fixtures[key] = Fixture(self, callback, *args, **kwargs)
 
-    def add_magic(self, key, callback, *args, **kwargs):
-        if key in self._magics:
-            raise KeyError(f'Magic "{key}" already exists!')
-        self.set_magic(key, callback, *args, **kwargs)
+    def add_fixture(self, key, callback, *args, **kwargs):
+        if key in self._fixtures:
+            raise KeyError(f'Fixture "{key}" already exists!')
+        self.set_fixture(key, callback, *args, **kwargs)
 
     def del_var(self, key):
         del self._vars[key]
 
-    def del_magic(self, key):
-        del self._magics[key]
+    def del_fixture(self, key):
+        del self._fixtures[key]
 
     def del_key(self, key):
         try:
             self.del_var(key)
         except KeyError:
-            self.del_magic(key)
+            self.del_fixture(key)
 
     def __getitem__(self, item):
         try:
             return self._vars[item]
         except KeyError:
-            return self._magics[item]()
+            fixture = self._fixtures[item]
+            return fixture()
 
     def __setitem__(self, key, value):
-        if key in self._magics:
+        if key in self._fixtures:
             raise SyntaxError(f'The name "{key}" is reserved!')
         self._vars[key] = value
 
     def __contains__(self, item):
-        return item in self._vars or item in self._magics
+        return item in self._vars or item in self._fixtures
+
+    def __repr__(self):
+        return 'EmbeddedLocalNS({!r}, {!r}, {!r})'.format(
+            dict(self._fixtures),
+            dict(self._vars),
+            dict(self._globals))
+
+    def __str__(self):
+        return repr(self)

@@ -80,7 +80,7 @@ class SnippetCursor(Cursor):
 
     @default_match_result
     def match(self, pattern, match_result: MatchResult) -> MatchResult:
-        return pattern.match(self, match_result)
+        return pattern.match(self, self.env, match_result)
 
     def next(self):
         return self._next

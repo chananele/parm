@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 from parm.api.exceptions import ExpectFailure
 from parm.api.embedded_ns import EmbeddedLocalNS
 
@@ -12,6 +14,12 @@ class Env:
         self._uni_ns = uni_ns  # type: EmbeddedLocalNS
         self._multi_ns = multi_ns  # type: EmbeddedLocalNS
 
+    @contextmanager
+    def snapshot(self):
+        with self._uni_ns.snapshot():
+            with self._multi_ns.snapshot():
+                yield
+
     @classmethod
     def create_default_env(cls):
         env = cls(EmbeddedLocalNS(), EmbeddedLocalNS())
@@ -21,15 +29,15 @@ class Env:
     def clone(self):
         return Env(self._uni_ns.clone(), self._multi_ns.clone())
 
-    def add_uni_magic(self, name, callback, *args, **kwargs):
-        self._uni_ns.add_magic(name, callback, *args, **kwargs)
+    def add_uni_fixture(self, name, callback, *args, **kwargs):
+        self._uni_ns.add_fixture(name, callback, *args, **kwargs)
 
-    def add_multi_magic(self, name, callback, *args, **kwargs):
-        self._multi_ns.add_magic(name, callback, *args, **kwargs)
+    def add_multi_fixture(self, name, callback, *args, **kwargs):
+        self._multi_ns.add_fixture(name, callback, *args, **kwargs)
 
-    def add_common_magic(self, name, callback, *args, **kwargs):
-        self.add_uni_magic(name, callback, *args, **kwargs)
-        self.add_multi_magic(name, callback, *args, **kwargs)
+    def add_common_fixture(self, name, callback, *args, **kwargs):
+        self.add_uni_fixture(name, callback, *args, **kwargs)
+        self.add_multi_fixture(name, callback, *args, **kwargs)
 
     def del_uni_var(self, name):
         self._uni_ns.del_var(name)

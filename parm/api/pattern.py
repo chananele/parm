@@ -23,7 +23,7 @@ class LineUniPattern(LinePattern):
     def _add_default_pre_run_hooks(self):
         self._pre_run_hooks.extend([
             self._add_basic_vars,
-            self._add_skipping_magics,
+            self._add_skipping_fixtures,
         ])
 
     def add_pre_run_hook(self, callback):
@@ -35,9 +35,9 @@ class LineUniPattern(LinePattern):
         env.add_uni_globals(result=match_result)
 
     @staticmethod
-    def _add_skipping_magics(env: Env, cursor: Cursor, _: MatchResult):
-        env.add_uni_magic('next', lambda: cursor.next())
-        env.add_uni_magic('prev', lambda: cursor.prev())
+    def _add_skipping_fixtures(env: Env, cursor: Cursor, _: MatchResult):
+        env.add_uni_fixture('next', lambda: cursor.next())
+        env.add_uni_fixture('prev', lambda: cursor.prev())
 
         def skip(count):
             c = cursor
@@ -57,18 +57,15 @@ class LineUniPattern(LinePattern):
         for hook in self._pre_run_hooks:
             hook(env, cursor, match_result)
 
-    def _prepare_uni_code_env(self, cursor: Cursor, match_result: MatchResult):
-        env = self.env.clone()  # We clone so as not to modify the global environment
-        self._exec_pre_run_hooks(env, cursor, match_result)
-        return env
-
     def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
         for c in cursors:
-            env = self._prepare_uni_code_env(c, match_result)
-            result = env.run_uni_code(self.code)
-            if result is None:
-                result = [c]
-            yield from result
+            env = c.env
+            with env.snapshot():
+                self._exec_pre_run_hooks(env, c, match_result)
+                result = env.run_uni_code(self.code)
+                if result is None:
+                    result = [c]
+                yield from result
 
 
 class LineMultiPattern(LinePattern):
@@ -82,6 +79,7 @@ class LineMultiPattern(LinePattern):
         self._pre_run_hooks.extend([
             self._add_basic_vars,
             self._add_pattern_match_cbs,
+            self._add_util_cbs,
         ])
 
     def add_pre_run_hook(self, callback):
@@ -136,10 +134,6 @@ class LineMultiPattern(LinePattern):
 
     @staticmethod
     def _add_util_cbs(env: Env, cursors: Iterable[Cursor], match_result: MatchResult):
-        def _expect(condition):
-            if not condition:
-                raise
-
         def _single():
             s = None
             for c in cursors:
@@ -162,20 +156,17 @@ class LineMultiPattern(LinePattern):
             if cnt <= 1:
                 raise NoMatches()
 
-        env.add_multi_magic('single', _single)
-        env.add_multi_magic('multiple', _multiple)
-
-    def _prepare_multi_code_env(self, cursors: Iterable[Cursor], match_result: MatchResult):
-        env = self.env.clone()  # We clone so as not to modify the global environment
-        self._exec_pre_run_hooks(env, cursors, match_result)
-        return env
+        env.add_multi_fixture('single', _single)
+        env.add_multi_fixture('multiple', _multiple)
 
     def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
-        env = self._prepare_multi_code_env(cursors, match_result)
-        result = env.run_multi_code(self.code)
-        if not result:
-            raise NoMatches()
-        return result
+        env = self.env
+        with env.snapshot():
+            self._exec_pre_run_hooks(env, cursors, match_result)
+            result = env.run_multi_code(self.code)
+            if not result:
+                raise NoMatches()
+            return result
 
 
 class LineAssemblyPattern(LinePattern):

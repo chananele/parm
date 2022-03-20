@@ -20,7 +20,7 @@ class IDAProgram(Program):
     def __init__(self, env, mods):
         super().__init__(env)
         self.mods = mods
-        self.add_env_magics()
+        self.add_env_fixtures()
 
     def get_func(self, cursor) -> IDAFunc:
         raise NotImplementedError()
@@ -28,14 +28,14 @@ class IDAProgram(Program):
     def get_xrefs_to(self, cursor) -> Iterator[Cursor]:
         raise NotImplementedError()
 
-    def add_env_magics(self):
-        self.env.add_magic('xrefs_to', self.get_xrefs_to)
-        self.env.add_magic('func', self.get_func)
+    def add_env_fixtures(self):
+        self.env.add_uni_fixture('xrefs_to', self.get_xrefs_to)
+        self.env.add_uni_fixture('func', self.get_func)
 
 
 def idapython_create_program() -> IDAProgram:
     import idc
     import idautils
     mods = IDAMods(idc, idautils)
-    env = Env()
+    env = Env.create_default_env()
     return IDAProgram(env, mods)

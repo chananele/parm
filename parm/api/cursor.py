@@ -1,3 +1,4 @@
+from parm.api.env import Env
 from parm.api.match_result import MatchResult
 from parm.api.exceptions import NoMoreInstructions
 from parm.api.parsing.arm import Instruction
@@ -5,7 +6,7 @@ from parm.api.parsing.arm import Instruction
 
 class Cursor:
     def __init__(self, env):
-        self.env = env
+        self.env = env  # type: Env
 
     @property
     def instruction(self) -> Instruction:

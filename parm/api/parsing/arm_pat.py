@@ -10,10 +10,11 @@ from parm.api.common import default_match_result
 from parm.api.exceptions import PatternMismatchException, OperandsExhausted
 from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMatches, NotAllOperandsMatched
 from parm.api.match_result import MatchResult
+from parm.api.env import Env
 from parm.api.cursor import Cursor
 
 
-def _consume_list(lst: list, operands: list, match_result: MatchResult, complete):
+def _consume_list(lst: list, operands: list, env: Env, match_result: MatchResult, complete):
     def _completer_gen(i):
         try:
             o = lst[i + 1]
@@ -21,7 +22,7 @@ def _consume_list(lst: list, operands: list, match_result: MatchResult, complete
             return complete
 
         def completer(remaining):
-            o.consume(remaining, match_result, _completer_gen(i + 1))
+            o.consume(remaining, env, match_result, _completer_gen(i + 1))
 
         return completer
 
@@ -30,17 +31,17 @@ def _consume_list(lst: list, operands: list, match_result: MatchResult, complete
     except IndexError:
         complete(operands)
     else:
-        op.consume(operands, match_result, _completer_gen(0))
+        op.consume(operands, env, match_result, _completer_gen(0))
 
 
 def _single_consumer(func):
     @wraps(func)
-    def decorator(self, operands: list, match_result: MatchResult, complete):
+    def decorator(self, operands: list, env: Env, match_result: MatchResult, complete):
         try:
             op0 = operands[0]
         except IndexError:
             raise OperandsExhausted(self)
-        func(self, op0, match_result)
+        func(self, op0, env, match_result)
         complete(operands[1:])
 
     return decorator
@@ -71,7 +72,7 @@ class OpcodePat:
             return False
         return self.name == other.name and self.capture == other.capture
 
-    def match(self, opcode, match_result: MatchResult):
+    def match(self, opcode, _e: Env, match_result: MatchResult):
         if not isinstance(opcode, str):
             raise PatternTypeMismatch(self.name, opcode)
         if not fnmatch(opcode, self.name):
@@ -142,8 +143,8 @@ class ContainerBase:
 
 class CommandPat(ContainerBase):
     @default_match_result
-    def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
-        return self.value.match(cursors, match_result)
+    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
+        return self.value.match(cursors, env, match_result)
 
 
 class MemOffsetPat(ContainerBase):
@@ -167,18 +168,18 @@ class ShiftedRegPat:
         return f'ShiftedRegPat({", ".join(ps)})'
 
     @_single_consumer
-    def consume(self, op, match_result: MatchResult):
+    def consume(self, op, env: Env, match_result: MatchResult):
         if isinstance(op, arm.ShiftedReg):
-            self.reg_pat.consume([op.reg], match_result, _expect_done)
+            self.reg_pat.consume([op.reg], env, match_result, _expect_done)
             if self.shift_pat is None:
                 if op.shift is not None:
                     raise PatternValueMismatch(self, op)
             else:
-                self.shift_pat.consume([op.shift], match_result, _expect_done)
+                self.shift_pat.consume([op.shift], env, match_result, _expect_done)
         elif isinstance(op, arm.Reg):
             if self.shift_pat is not None:
-                self.shift_pat.consume([None], match_result, _expect_done)
-            self.reg_pat.consume([op], match_result, _expect_done)
+                self.shift_pat.consume([None], env, match_result, _expect_done)
+            self.reg_pat.consume([op], env, match_result, _expect_done)
         else:
             raise PatternTypeMismatch(self, op)
 
@@ -194,10 +195,10 @@ class MemMultiPat:
         return '{{{}}}'.format(', '.join(str(r) for r in self.reg_list))
 
     @_single_consumer
-    def consume(self, op, match_result):
+    def consume(self, op, env: Env, match_result):
         if not isinstance(op, arm.MemMulti):
             raise PatternTypeMismatch(self, op)
-        _consume_list(self.reg_list, op.reg_list, match_result, _expect_done)
+        _consume_list(self.reg_list, op.reg_list, env, match_result, _expect_done)
 
 
 class RegRangePat:
@@ -211,7 +212,7 @@ class RegRangePat:
     def __str__(self):
         return f'{self.start}-{self.end}'
 
-    def consume(self, operands: list, match_result: MatchResult, complete):
+    def consume(self, operands: list, env: Env, match_result: MatchResult, complete):
         try:
             s = operands[0]
         except IndexError:
@@ -220,7 +221,7 @@ class RegRangePat:
         if not isinstance(s, arm.Reg):
             raise PatternTypeMismatch(self, s)
 
-        self.start.consume([s], match_result, _expect_done)
+        self.start.consume([s], env, match_result, _expect_done)
         s_index = arm.REG_INDEX[s.name]
 
         for i, o in enumerate(operands[1:]):
@@ -230,7 +231,7 @@ class RegRangePat:
                 break
             try:
                 with match_result.transact():
-                    self.end.consume([o], match_result, _expect_done)
+                    self.end.consume([o], env, match_result, _expect_done)
                     complete(operands[i + 2:])
                     return
             except PatternMismatchException:
@@ -255,8 +256,8 @@ class OperandsPat:
         return self.ops == other.ops
 
     @default_match_result
-    def match(self, operands: list, match_result: MatchResult):
-        _consume_list(self.ops, operands, match_result, _expect_done)
+    def match(self, operands: list, env: Env, match_result: MatchResult):
+        _consume_list(self.ops, operands, env, match_result, _expect_done)
 
 
 class IntegerVal(ContainerBase):
@@ -269,14 +270,14 @@ class IntegerVal(ContainerBase):
 
 
 class RegPat(ContainerBase):
-    def consume(self, operands: list, match_result: MatchResult, complete):
-        self.value.consume(operands, match_result, complete)
+    def consume(self, operands: list, env: Env, match_result: MatchResult, complete):
+        self.value.consume(operands, env, match_result, complete)
 
 
 class Reg(ContainerBase):
     @_single_consumer
     @default_match_result
-    def consume(self, op, match_result: MatchResult):
+    def consume(self, op, _: Env, match_result: MatchResult):
         if not isinstance(op, arm.Reg):
             raise PatternTypeMismatch(self.value, op)
         if self.value.lower() != op.name.lower():
@@ -311,7 +312,7 @@ class WildcardBase:
         return True
 
     @default_match_result
-    def match(self, value, match_result: MatchResult):
+    def match(self, value, _e: Env, match_result: MatchResult):
         match_result[self.capture] = value
 
 
@@ -319,7 +320,7 @@ class WildcardMulti(WildcardBase):
     symbol = '*'
 
     @default_match_result
-    def consume(self, operands, match_result: MatchResult, complete):
+    def consume(self, operands, _e: Env, match_result: MatchResult, complete):
         for i in range(len(operands) + 1):
             with match_result.transact():
                 complete(operands[i:])
@@ -331,7 +332,7 @@ class WildcardOptional(WildcardBase):
     symbol = '?'
 
     @default_match_result
-    def consume(self, operands: list, match_result: MatchResult, complete):
+    def consume(self, operands: list, _e: Env, match_result: MatchResult, complete):
         try:
             op0 = operands[0]
         except IndexError:
@@ -352,7 +353,7 @@ class WildcardSingle(WildcardBase):
     symbol = '@'
 
     @_single_consumer
-    def consume(self, op, match_result: MatchResult):
+    def consume(self, op, _e: Env, match_result: MatchResult):
         match_result[self.capture] = op
 
 
@@ -361,11 +362,11 @@ class ImmediatePat:
         self.value = value
 
     @_single_consumer
-    def consume(self, op, match_result: MatchResult):
+    def consume(self, op, env: Env, match_result: MatchResult):
         if not isinstance(op, arm.Immediate):
             raise PatternTypeMismatch(self, op)
 
-        self.value.consume([op.value], match_result, _expect_done)
+        self.value.consume([op.value], env, match_result, _expect_done)
 
     def __repr__(self):
         return f'ImmediatePat({self.value!r})'
@@ -402,9 +403,26 @@ class CodeLine:
 class UniCodeLine(CodeLine):
     prefix = '!'
 
+    @default_match_result
+    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
+        next_cursors = []
+        for c in cursors:
+            with env.snapshot():
+                env.add_uni_globals(match_result=match_result, cursor=c)
+                print('unins', env._uni_ns)
+                result = env.run_uni_code(self.code)
+                next_cursors.extend(result)
+        return next_cursors
+
 
 class MultiCodeLine(CodeLine):
     prefix = '$'
+
+    @default_match_result
+    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
+        with env.snapshot():
+            env.add_multi_globals(match_result=match_result, cursors=cursors)
+            return env.run_multi_code(self.code)
 
 
 class AddressPat(ContainerBase):
@@ -412,14 +430,14 @@ class AddressPat(ContainerBase):
         super().__init__(value)
 
     @default_match_result
-    def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
+    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
         for cursor in cursors:
-            self.value.match(cursor.address, match_result)
+            self.value.match(cursor.address, env, match_result)
         return cursors
 
     @_single_consumer
-    def consume(self, op, match_result: MatchResult):
-        self.value.match(op, match_result)
+    def consume(self, op, env: Env, match_result: MatchResult):
+        self.value.match(op, env, match_result)
 
 
 class Address:
@@ -432,13 +450,13 @@ class Address:
     def __str__(self):
         return f'0x{self.address:X}'
 
-    def match(self, address, _: MatchResult):
+    def match(self, address, _e: Env, _m: MatchResult):
         if address != self.address:
             raise PatternValueMismatch(self.address, address)
 
 
 class Label(ContainerBase):
-    def match(self, address, match_result: MatchResult):
+    def match(self, address, _e: Env, match_result: MatchResult):
         match_result[self.value] = address
 
 
@@ -467,12 +485,12 @@ class BlockPat:
         return self.lines == other.lines
 
     @default_match_result
-    def match(self, cursor: Cursor, match_result: MatchResult) -> Iterable[Cursor]:
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult) -> Iterable[Cursor]:
         cursors = [cursor]
         for line in self.lines:
             if not cursors:
                 raise NoMatches()
-            cursors = line.match(cursors, match_result)
+            cursors = line.match(cursors, env, match_result)
         return cursors
 
 
@@ -493,12 +511,12 @@ class InstructionPat:
         return self.opcode_pat == other.opcode_pat and self.operand_pats == other.operand_pats
 
     @default_match_result
-    def match(self, cursors: Iterable[Cursor], match_result: MatchResult) -> Iterable[Cursor]:
+    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
         next_cursors = []
         for c in cursors:
             inst = c.instruction
-            self.opcode_pat.match(inst.opcode, match_result)
-            self.operand_pats.match(inst.operands, match_result)
+            self.opcode_pat.match(inst.opcode, env, match_result)
+            self.operand_pats.match(inst.operands, env, match_result)
             next_cursors.append(c.next())
         return next_cursors
 
