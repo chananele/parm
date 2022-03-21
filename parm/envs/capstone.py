@@ -1,6 +1,7 @@
 from pathlib import Path
-from typing import IO, Iterator, Union
+from typing import IO, Iterator, Tuple, Union
 
+from elftools.elf.elffile import ELFError, ELFFile
 from parm.api.asm_cursor import AsmCursor
 from parm.programs.snippet import ArmSnippetProgram
 
@@ -43,15 +44,56 @@ class CapstoneProgram(ArmSnippetProgram):
         self.env.inject_magic_getter('xrefs_to', self.get_xrefs_to)
 
 
+def read_from_elf_text_section(binary_file: IO[bytes],
+                               size: int) -> Tuple[int, bytes]:
+    """
+    Args:
+        binary_file (IO[bytes]): an opened elf file.
+        size (int): number of bytes to return.
+    Returns:
+        tuple: (.text section offset in the binary, .text section binary code in as bytes)
+    Raises:
+        ELFError: if the given `binary` file is not an elf.
+    """
+    elf = ELFFile(binary_file)
+    code = elf.get_section_by_name('.text')
+    offset = code['sh_addr']
+    ops = code.data()[:size]
+    return offset, ops
+
+
+def read_from_binary(binary_file: IO[bytes], offset: int, size: int) -> bytes:
+    binary_file.seek(offset)
+    return binary_file.read(size)
+
+
+def is_elf_file(binary_file: IO[bytes]):
+    # identifying by file's magic
+    is_elf = b'\x7fELF' == binary_file.read(4)
+    binary_file.seek(0)
+    return is_elf
+
+
 def disassemble_binary_file(
         binary_path: Path,
         arch: str,
         mode: int,
         offset: int = 0,
         size: Union[int, None] = None) -> Union[bytes, bool]:
+    # TODO: In case of an elf maybe perform relocations and resolve symbols...
     with binary_path.open('rb') as bf:
-        binary_file.seek(offset)
-        ops = binary_file.read(size)
+        if not is_elf_file(bf):
+            ops = read_from_binary(bf, offset, size)
+        else:
+            # disassemble elf's .text section
+            try:
+                (offset, ops) = read_from_elf_text_section(bf, size)
+                print(
+                    "Got an elf file without a specified offset, using .text section"
+                )
+            except ELFError:
+                print("offset must be specified on non-elf binaries")
+                return
 
     if not ops:
         print("Nothing to disassemble ?")
