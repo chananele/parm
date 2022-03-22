@@ -113,5 +113,17 @@ def disassemble_binary_file(
         return False
 
 
+def capstone_create_program_from_file(
+        binary_path: Path,
+        arch: str = "arm",
+        mode: int = 32,
+        offset: int = 0,
+        size: Union[int, None] = None) -> CapstoneProgram:
+    if not (asm := disassemble_binary_file(binary_path, arch, mode, offset,
+                                           size)):
+        raise ValueError(f'Failed disassembling "{binary_path.name}"')
+    return capstone_create_program(asm)
+
+
 def capstone_create_program(code: str) -> CapstoneProgram:
     return CapstoneProgram(code)
