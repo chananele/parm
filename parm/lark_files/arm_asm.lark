@@ -89,13 +89,20 @@ OPCODE_COMPARE: COMPARE_LO [CONDITION_LO]
 OPCODE_MULTIPLY: "mul" [S_LO] [CONDITION_LO]
                | "MUL" [S_LO] [CONDITION_LO]
 
+OPCODE_SHIFT: SHIFT_OP_LO [S_LO] [CONDITION_LO]
+            | SHIFT_OP_HI [S_HI] [CONDITION_HI]
+OPCODE_SHIFT_UNARY: SHIFT_UNARY_OP_LO [S_LO] [CONDITION_LO]
+                  | SHIFT_UNARY_OP_HI [S_HI] [CONDITION_LO]
+
 reg: REG
 reg_range: reg [_WS] "-" [_WS] reg
 reg_list: (reg | reg_range) ([_WS] "," [_WS] (reg | reg_range))*
 
 flexible_operand: (shifted_reg | immediate)
 
-reg_only_operands: reg [_WS] "," [_WS] reg [[_WS] "," [_WS] reg ]
+two_reg_operands: reg [_WS] "," [_WS] reg
+
+reg_only_operands: two_reg_operands [[_WS] "," [_WS] reg ]
 
 mov_operands: reg [_WS] "," [_WS] flexible_operand
 
@@ -108,6 +115,10 @@ bitwise_operands: reg [_WS] "," [[_WS] reg [_WS] ","] [_WS] flexible_operand
 compare_operands: reg [_WS] "," [_WS] flexible_operand
 
 multiply_operands: reg_only_operands
+
+shift_operands: reg [_WS] "," [_WS] reg [_WS] "," [_WS] SHIFT_VAL
+
+shift_unary_operands: two_reg_operands
 
 mem_single_operand: reg [_WS] "," [_WS] "[" [_WS] reg [_WS] ["," [_WS] immediate [_WS]] "]" -> mem_expr_immediate
                   | reg [_WS] "," [_WS] "[" [_WS] reg [_WS] "," [_WS] immediate [_WS] "]" [_WS] "!" -> mem_expr_immediate_pre
@@ -132,6 +143,8 @@ instruction: OPCODE_MEM_SINGLE _WS mem_single_operand [_WS]
            | OPCODE_BITWISE _WS bitwise_operands [_WS]
            | OPCODE_COMPARE _WS compare_operands [_WS]
            | OPCODE_MULTIPLY _WS multiply_operands [_WS]
+           | OPCODE_SHIFT _WS shift_operands [_WS]
+           | OPCODE_SHIFT_UNARY _WS shift_unary_operands [_WS]
 
 DEC_NUM: "0" | "1".."9" DIGIT*
 HEX_NUM: "0x" HEXDIGIT+

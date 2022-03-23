@@ -102,6 +102,15 @@ MULTIPLY_PAT: "mul" [S_LO] "*"
 opcode_multiply_pat: OPCODE_MULTIPLY -> exact_multiply
                    | MULTIPLY_PAT capture_opt -> approx_multiply
 
+SHIFT_PAT: SHIFT_OP_LO [S_LO] "*"
+         | SHIFT_OP_HI [S_HI] "*"
+SHIFT_UNARY_PAT: SHIFT_UNARY_OP_LO [S_LO] "*"
+               | SHIFT_UNARY_OP_HI [S_HI] "*"
+
+opcode_shift_pat: OPCODE_SHIFT -> exact_shift
+                | SHIFT_PAT capture_opt -> approx_shift
+opcode_shift_unary_pat: OPCODE_SHIFT_UNARY -> exact_shift_unary
+                | SHIFT_UNARY_PAT capture_opt -> approx_shift_unary
 
 mov_operands_pat: reg_pat [_WS] "," [_WS] flexible_operand_pat
                 | wildcard_m
@@ -116,6 +125,9 @@ compare_operands_pat: reg_pat [_WS] "," [_WS] flexible_operand_pat
 
 multiply_operands_pat: reg_only_operands_pat
 
+shift_operands_pat: reg_pat [_WS] "," [_WS] reg_pat [_WS] "," [_WS] shift_val_pat
+shift_unary_operands_pat: two_reg_operands_pat
+
 branch_rel_operands_pat: ["#"] address_pat
 branch_ind_operands_pat: reg_pat
 
@@ -129,6 +141,8 @@ instruction_pat: opcode_wildcard _WS operands_pat
                | opcode_branch_rel_pat _WS branch_rel_operands_pat
                | opcode_branch_ind_pat _WS branch_ind_operands_pat
                | opcode_multiply_pat _WS multiply_operands_pat
+               | opcode_shift_pat _WS shift_operands_pat
+               | opcode_shift_unary_pat _WS shift_unary_operands_pat
 
 _COMMENT: /\/\/[^\n]*/
 
@@ -182,6 +196,13 @@ block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
 %import .arm.OPCODE_COMPARE
 
 %import .arm.OPCODE_MULTIPLY
+
+%import .arm.SHIFT_OP_LO
+%import .arm.SHIFT_OP_HI
+%import .arm.OPCODE_SHIFT
+%import .arm.SHIFT_UNARY_OP_LO
+%import .arm.SHIFT_UNARY_OP_HI
+%import .arm.OPCODE_SHIFT_UNARY
 
 %import .arm.reg
 
