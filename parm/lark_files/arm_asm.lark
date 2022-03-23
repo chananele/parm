@@ -76,12 +76,13 @@ reg: REG
 reg_range: reg [_WS] "-" [_WS] reg
 reg_list: (reg | reg_range) ([_WS] "," [_WS] (reg | reg_range))*
 
-mov_operands: reg [_WS] "," [_WS] (shifted_reg | immediate)
+flexible_operand: (shifted_reg | immediate)
+
+mov_operands: reg [_WS] "," [_WS] flexible_operand
 
 shifted_reg: reg [_WS] ["," [_WS] SHIFT]
 
-arithmetic_operands: reg [_WS] "," [_WS] shifted_reg
-                   | reg [_WS] "," [_WS] reg [_WS] "," [_WS] shifted_reg
+arithmetic_operands: reg [_WS] "," [[_WS] reg [_WS] ","] [_WS] flexible_operand
 
 mem_single_operand: reg [_WS] "," [_WS] "[" [_WS] reg [_WS] ["," [_WS] immediate [_WS]] "]" -> mem_expr_immediate
                   | reg [_WS] "," [_WS] "[" [_WS] reg [_WS] "," [_WS] immediate [_WS] "]" [_WS] "!" -> mem_expr_immediate_pre

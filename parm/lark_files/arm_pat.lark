@@ -31,6 +31,8 @@ shift_pat: shift_op_pat "#" shift_val_pat
 
 shifted_reg_pat: reg_pat [[_WS] "," [_WS] shift_pat]
 
+flexible_operand_pat: (shifted_reg_pat | immediate_pat)
+
 mem_offset_pat: wildcard_s
               | immediate_pat
               | reg [[_WS] "," [_WS] shift_pat] -> shifted_reg_offset_pat
@@ -79,11 +81,10 @@ opcode_branch_ind_pat: OPCODE_BRANCH_IND -> exact_branch_ind
                      | BRANCH_IND_PAT capture_opt -> approx_branch_ind
 
 
-mov_operands_pat: reg_pat [_WS] "," [_WS] shifted_reg_pat
+mov_operands_pat: reg_pat [_WS] "," [_WS] flexible_operand_pat
                 | wildcard_m
 
-arithmetic_operands_pat: reg_pat [_WS] "," [_WS] shifted_reg_pat
-                       | reg_pat [_WS] "," [_WS] reg_pat [_WS] "," [_WS] shifted_reg_pat
+arithmetic_operands_pat: reg_pat [_WS] "," [[_WS] reg_pat [_WS] ","] [_WS] flexible_operand_pat
                        | [reg_pat [_WS] "," [_WS]] wildcard_m
 
 branch_rel_operands_pat: address_pat
