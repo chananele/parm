@@ -34,9 +34,8 @@ SHIFT_OP_LO: "lsl" | "lsr" | "asr" | "rrx" | "ror"
 SHIFT_OP_HI: "LSL" | "LSR" | "ASR" | "RRX" | "ROR"
 SHIFT_OP: SHIFT_OP_LO | SHIFT_OP_HI
 
-SHIFT_VAL: "1".."9"
-         | ("1" | "2") "1".."9"
-         | "30" | "31"
+SHIFT_VAL: REG
+         | "#" ("1".."9" | ("1" | "2") "1".."9" | "30" | "31") // immediate value between 1 - 31
 
 SHIFT: SHIFT_OP "#" SHIFT_VAL
 
