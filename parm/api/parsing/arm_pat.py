@@ -509,6 +509,7 @@ class ArmPatternTransformer(Transformer):
     approx_mov = _opcode_pat
     approx_arithmetic = _opcode_pat
     approx_bitwise = _opcode_pat
+    approx_compare = _opcode_pat
     approx_branch_rel = _opcode_pat
     approx_branch_ind = _opcode_pat
 
@@ -520,6 +521,7 @@ class ArmPatternTransformer(Transformer):
     exact_mov = _exact_opcode
     exact_arithmetic = _exact_opcode
     exact_bitwise = _exact_opcode
+    exact_compare = _exact_opcode
     exact_branch_rel = _exact_opcode
     exact_branch_ind = _exact_opcode
 
@@ -572,6 +574,7 @@ class ArmPatternTransformer(Transformer):
     mov_operands_pat = operands_pat
     arithmetic_operands_pat = operands_pat
     bitwise_operands_pat = operands_pat
+    compare_operands_pat = operands_pat
     branch_rel_operands_pat = operands_pat
     branch_ind_operands_pat = operands_pat
 
