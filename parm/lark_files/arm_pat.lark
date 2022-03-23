@@ -87,7 +87,7 @@ mov_operands_pat: reg_pat [_WS] "," [_WS] flexible_operand_pat
 arithmetic_operands_pat: reg_pat [_WS] "," [[_WS] reg_pat [_WS] ","] [_WS] flexible_operand_pat
                        | [reg_pat [_WS] "," [_WS]] wildcard_m
 
-branch_rel_operands_pat: address_pat
+branch_rel_operands_pat: ["#"] address_pat
 branch_ind_operands_pat: reg_pat
 
 opcode_wildcard: "*" capture_opt

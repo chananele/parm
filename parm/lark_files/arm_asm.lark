@@ -95,7 +95,7 @@ mem_multi_operand: reg [_WS] "," [_WS] "{" [_WS] reg_list [_WS] "}"
 stack_mem_multi_operand: "{" [_WS] reg_list [_WS] "}"
 
 branch_ind_operands: reg
-branch_rel_operands: address
+branch_rel_operands: ["#"] address
 
 instruction: OPCODE_MEM_SINGLE _WS mem_single_operand [_WS]
            | OPCODE_MEM_MULTI _WS mem_multi_operand [_WS]
