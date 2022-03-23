@@ -1,7 +1,15 @@
 CONDITION_LO: "eq" | "ne" | "cs" | "hs" | "cc" | "lo" | "mi" | "pl" | "vs" | "vc" | "hi" | "ls" | "ge" | "lt" | "gt" | "le" | "al"
 CONDITION_HI: "EQ" | "NE" | "CS" | "HS" | "CC" | "LO" | "MI" | "PL" | "VS" | "VC" | "HI" | "LS" | "GE" | "LT" | "GT" | "LE" | "AL"
 
-REG: "r"i "0".."9" | "r10"i | "r11"i | "r12"i | "sp"i | "lr"i | "pc"i
+REG: "r"i "0".."8" | R9 | "r10"i | R11 | R12 | R13 | R14 | R15
+// register synonyms
+// TODO: Consider a1-a4 for r0-r4 and v1-v8 for r4-r11)
+R9: "r9"i |"sb"i
+R11: "r11"i | "fp"i
+R12: "r12"i | "ip"i
+R13: "r13"i | "sp"i
+R14: "r14"i | "lr"i
+R15: "r15"i | "pc"i
 
 S_LO: "s"
 S_HI: "S"

@@ -1,7 +1,16 @@
-from lark import Transformer, Token
+from lark import Token, Transformer
 
+REGS = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10',
+        'r11', 'r12', 'r13', 'r14', 'r15')
 
-REGS = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'sp', 'lr', 'pc')
+REG_SYNONYMS = {
+    'r9': 'sb',
+    'r11': 'fp',
+    'r12': 'ip',
+    'r13': 'sp',
+    'r14': 'lr',
+    'r15': 'pc'
+}
 
 
 def _build_reg_index():
@@ -9,6 +18,9 @@ def _build_reg_index():
     for i, r in enumerate(REGS):
         result[r.upper()] = i
         result[r.lower()] = i
+        if (syn := REG_SYNONYMS.get(r)):
+            result[syn.upper()] = i
+            result[syn.lower()] = i
     return result
 
 
@@ -43,7 +55,7 @@ class Line:
 class Reg:
     def __init__(self, name):
         assert isinstance(name, str)
-        assert name.lower() in REGS
+        assert name in REG_INDEX
         self.name = name
 
     def __eq__(self, other):
