@@ -12,10 +12,10 @@ immediate_pat: "#" wildcard_s -> immediate_wildcard
              | "#" NUM -> immediate_value
 
 
-line_address_pat: NUM -> address
+line_address_pat: UNSIGNED_NUM -> address
                 | CAPTURE -> label
 
-address_pat: NUM -> address
+address_pat: UNSIGNED_NUM -> address
            | wildcard_s
 
 reg_pat: reg
@@ -113,6 +113,7 @@ line_pat: command_pat -> lone_command
 
 block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
 
+%import .arm.UNSIGNED_NUM
 %import .arm_asm.NUM
 %import .arm_asm.SHIFT_OP
 %import .arm_asm.SHIFT_VAL

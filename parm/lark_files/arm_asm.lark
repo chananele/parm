@@ -106,9 +106,10 @@ instruction: OPCODE_MEM_SINGLE _WS mem_single_operand [_WS]
 
 DEC_NUM: "0" | "1".."9" DIGIT*
 HEX_NUM: "0x" HEXDIGIT+
-NUM: DEC_NUM | HEX_NUM
+UNSIGNED_NUM: DEC_NUM | HEX_NUM
+NUM: ["-"] UNSIGNED_NUM
 
-address: NUM
+address: UNSIGNED_NUM
 
 line: [_WS] [address [_WS] ":" [_WS]] instruction [_WS]
 
