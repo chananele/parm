@@ -33,6 +33,10 @@ shifted_reg_pat: reg_pat [[_WS] "," [_WS] shift_pat]
 
 flexible_operand_pat: (shifted_reg_pat | immediate_pat)
 
+two_reg_operands_pat: reg_pat [_WS] "," [_WS] reg_pat
+
+reg_only_operands_pat: two_reg_operands_pat [[_WS] "," [_WS] reg_pat ]
+
 mem_offset_pat: wildcard_s
               | immediate_pat
               | reg [[_WS] "," [_WS] shift_pat] -> shifted_reg_offset_pat
@@ -92,6 +96,12 @@ BRANCH_IND_PAT: BRANCH_IND_LO "*"
 opcode_branch_ind_pat: OPCODE_BRANCH_IND -> exact_branch_ind
                      | BRANCH_IND_PAT capture_opt -> approx_branch_ind
 
+MULTIPLY_PAT: "mul" [S_LO] "*"
+            | "MUL" [S_HI] "*"
+
+opcode_multiply_pat: OPCODE_MULTIPLY -> exact_multiply
+                   | MULTIPLY_PAT capture_opt -> approx_multiply
+
 
 mov_operands_pat: reg_pat [_WS] "," [_WS] flexible_operand_pat
                 | wildcard_m
@@ -103,6 +113,8 @@ bitwise_operands_pat: reg_pat [_WS] "," [[_WS] reg_pat [_WS] ","] [_WS] flexible
                     | [reg_pat [_WS] "," [_WS]] wildcard_m
 
 compare_operands_pat: reg_pat [_WS] "," [_WS] flexible_operand_pat
+
+multiply_operands_pat: reg_only_operands_pat
 
 branch_rel_operands_pat: ["#"] address_pat
 branch_ind_operands_pat: reg_pat
@@ -116,6 +128,7 @@ instruction_pat: opcode_wildcard _WS operands_pat
                | opcode_compare_pat _WS compare_operands_pat
                | opcode_branch_rel_pat _WS branch_rel_operands_pat
                | opcode_branch_ind_pat _WS branch_ind_operands_pat
+               | opcode_multiply_pat _WS multiply_operands_pat
 
 _COMMENT: /\/\/[^\n]*/
 
@@ -167,6 +180,8 @@ block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
 %import .arm.COMPARE_LO
 %import .arm.COMPARE_HI
 %import .arm.OPCODE_COMPARE
+
+%import .arm.OPCODE_MULTIPLY
 
 %import .arm.reg
 

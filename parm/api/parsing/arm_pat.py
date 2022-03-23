@@ -512,6 +512,7 @@ class ArmPatternTransformer(Transformer):
     approx_compare = _opcode_pat
     approx_branch_rel = _opcode_pat
     approx_branch_ind = _opcode_pat
+    approx_multiply = _opcode_pat
 
     def _exact_opcode(self, parts):
         (pat,) = parts
@@ -524,6 +525,7 @@ class ArmPatternTransformer(Transformer):
     exact_compare = _exact_opcode
     exact_branch_rel = _exact_opcode
     exact_branch_ind = _exact_opcode
+    exact_multiply = _exact_opcode
 
     def instruction_line(self, parts):
         (instruction_pat,) = parts
@@ -577,6 +579,7 @@ class ArmPatternTransformer(Transformer):
     compare_operands_pat = operands_pat
     branch_rel_operands_pat = operands_pat
     branch_ind_operands_pat = operands_pat
+    multiply_operands_pat = operands_pat
 
     def reg(self, parts):
         (name,) = parts

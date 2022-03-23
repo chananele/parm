@@ -82,11 +82,16 @@ COMPARE_HI: "CMP" | "CMN"
 OPCODE_COMPARE: COMPARE_LO [CONDITION_LO]
               | COMPARE_HI [CONDITION_HI]
 
+OPCODE_MULTIPLY: "mul" [S_LO] [CONDITION_LO]
+               | "MUL" [S_LO] [CONDITION_LO]
+
 reg: REG
 reg_range: reg [_WS] "-" [_WS] reg
 reg_list: (reg | reg_range) ([_WS] "," [_WS] (reg | reg_range))*
 
 flexible_operand: (shifted_reg | immediate)
+
+reg_only_operands: reg [_WS] "," [_WS] reg [[_WS] "," [_WS] reg ]
 
 mov_operands: reg [_WS] "," [_WS] flexible_operand
 
@@ -97,6 +102,8 @@ arithmetic_operands: reg [_WS] "," [[_WS] reg [_WS] ","] [_WS] flexible_operand
 bitwise_operands: reg [_WS] "," [[_WS] reg [_WS] ","] [_WS] flexible_operand
 
 compare_operands: reg [_WS] "," [_WS] flexible_operand
+
+multiply_operands: reg_only_operands
 
 mem_single_operand: reg [_WS] "," [_WS] "[" [_WS] reg [_WS] ["," [_WS] immediate [_WS]] "]" -> mem_expr_immediate
                   | reg [_WS] "," [_WS] "[" [_WS] reg [_WS] "," [_WS] immediate [_WS] "]" [_WS] "!" -> mem_expr_immediate_pre
@@ -120,6 +127,7 @@ instruction: OPCODE_MEM_SINGLE _WS mem_single_operand [_WS]
            | OPCODE_ARITHMETIC _WS arithmetic_operands [_WS]
            | OPCODE_BITWISE _WS bitwise_operands [_WS]
            | OPCODE_COMPARE _WS compare_operands [_WS]
+           | OPCODE_MULTIPLY _WS multiply_operands [_WS]
 
 DEC_NUM: "0" | "1".."9" DIGIT*
 HEX_NUM: "0x" HEXDIGIT+
