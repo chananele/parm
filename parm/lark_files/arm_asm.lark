@@ -72,6 +72,11 @@ ARITHMETIC_HI: "ADD" | "SUB" | "RSB" | "ADC" | "SBC" | "RSC"
 OPCODE_ARITHMETIC: ARITHMETIC_LO [S_LO] [CONDITION_LO]
                  | ARITHMETIC_HI [S_HI] [CONDITION_HI]
 
+BITWISE_LO: "and" | "orr" | "eor" | "bic"
+BITWISE_HI: "AND" | "ORR" | "EOR" | "BIC"
+OPCODE_BITWISE: BITWISE_LO [S_LO] [CONDITION_LO]
+              | BITWISE_HI [S_HI] [CONDITION_HI]
+
 reg: REG
 reg_range: reg [_WS] "-" [_WS] reg
 reg_list: (reg | reg_range) ([_WS] "," [_WS] (reg | reg_range))*
@@ -83,6 +88,8 @@ mov_operands: reg [_WS] "," [_WS] flexible_operand
 shifted_reg: reg [_WS] ["," [_WS] SHIFT]
 
 arithmetic_operands: reg [_WS] "," [[_WS] reg [_WS] ","] [_WS] flexible_operand
+
+bitwise_operands: reg [_WS] "," [[_WS] reg [_WS] ","] [_WS] flexible_operand
 
 mem_single_operand: reg [_WS] "," [_WS] "[" [_WS] reg [_WS] ["," [_WS] immediate [_WS]] "]" -> mem_expr_immediate
                   | reg [_WS] "," [_WS] "[" [_WS] reg [_WS] "," [_WS] immediate [_WS] "]" [_WS] "!" -> mem_expr_immediate_pre
@@ -104,6 +111,7 @@ instruction: OPCODE_MEM_SINGLE _WS mem_single_operand [_WS]
            | OPCODE_BRANCH_IND _WS branch_ind_operands [_WS]
            | OPCODE_MOV _WS mov_operands [_WS]
            | OPCODE_ARITHMETIC _WS arithmetic_operands [_WS]
+           | OPCODE_BITWISE _WS bitwise_operands [_WS]
 
 DEC_NUM: "0" | "1".."9" DIGIT*
 HEX_NUM: "0x" HEXDIGIT+

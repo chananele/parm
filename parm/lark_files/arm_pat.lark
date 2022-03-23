@@ -68,6 +68,12 @@ ARITHMETIC_PAT: ARITHMETIC_LO [S_LO] "*"
 opcode_arithmetic_pat: OPCODE_ARITHMETIC -> exact_arithmetic
                      | ARITHMETIC_PAT capture_opt -> approx_arithmetic
 
+BITWISE_PAT: BITWISE_LO [S_LO] "*"
+           | BITWISE_HI [S_HI] "*"
+
+opcode_bitwise_pat: OPCODE_BITWISE -> exact_bitwise
+                     | BITWISE_PAT capture_opt -> approx_bitwise
+
 BRANCH_REL_PAT: BRANCH_REL_LO "*"
               | BRANCH_REL_HI "*"
 
@@ -87,6 +93,9 @@ mov_operands_pat: reg_pat [_WS] "," [_WS] flexible_operand_pat
 arithmetic_operands_pat: reg_pat [_WS] "," [[_WS] reg_pat [_WS] ","] [_WS] flexible_operand_pat
                        | [reg_pat [_WS] "," [_WS]] wildcard_m
 
+bitwise_operands_pat: reg_pat [_WS] "," [[_WS] reg_pat [_WS] ","] [_WS] flexible_operand_pat
+                    | [reg_pat [_WS] "," [_WS]] wildcard_m
+
 branch_rel_operands_pat: ["#"] address_pat
 branch_ind_operands_pat: reg_pat
 
@@ -95,6 +104,7 @@ opcode_wildcard: "*" capture_opt
 instruction_pat: opcode_wildcard _WS operands_pat
                | opcode_mov_pat _WS mov_operands_pat
                | opcode_arithmetic_pat _WS arithmetic_operands_pat
+               | opcode_bitwise_pat _WS bitwise_operands_pat
                | opcode_branch_rel_pat _WS branch_rel_operands_pat
                | opcode_branch_ind_pat _WS branch_ind_operands_pat
 
@@ -141,7 +151,11 @@ block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
 %import .arm_asm.BRANCH_IND_HI
 %import .arm_asm.OPCODE_BRANCH_IND
 
-%import .arm_asm.reg
+%import .arm.BITWISE_LO
+%import .arm.BITWISE_HI
+%import .arm.OPCODE_BITWISE
+
+%import .arm.reg
 
 %import common.WS_INLINE -> _WS
 %import common.WS -> _AWS
