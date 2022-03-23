@@ -62,7 +62,7 @@ class ArmPatternTest(TestCase):
             # Even though it matches the pattern, "test" is already bound to 0x3000
             self.program.create_cursor(0x4000).match(pattern, match_result=mr)
 
-    def test_uni_code_line(self):
+    def test_code_line(self):
         self.program.add_code_block("""
             0x2000: mov r0, r1
                     mov r0, r2
@@ -74,7 +74,7 @@ class ArmPatternTest(TestCase):
         mr = MatchResult()
         pattern = self.program.create_pattern("""
             mov r0, @
-            !skip(2)
+            !skip_instructions(2)
             bl  @:target
         """)
         c.match(pattern, match_result=mr)

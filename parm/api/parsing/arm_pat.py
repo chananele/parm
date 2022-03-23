@@ -12,7 +12,7 @@ from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMat
 from parm.api.match_result import MatchResult
 from parm.api.env import Env
 from parm.api.cursor import Cursor
-from parm.api.pattern import LineUniPattern, LineMultiPattern, BlockPattern
+from parm.api.pattern import CodeLinePatternBase, BlockPattern
 
 
 def _consume_list(lst: list, operands: list, env: Env, match_result: MatchResult, complete):
@@ -381,10 +381,10 @@ class ImmediatePat:
         return self.value == other.value
 
 
-class CodeLine:
+class CodeLine(CodeLinePatternBase):
     @property
     def prefix(self):
-        raise NotImplementedError()
+        return '!'
 
     def __init__(self, code):
         self._code = code
@@ -403,14 +403,6 @@ class CodeLine:
         if not isinstance(other, type(self)):
             return False
         return self.code == other.code
-
-
-class UniCodeLine(CodeLine, LineUniPattern):
-    prefix = '!'
-
-
-class MultiCodeLine(CodeLine, LineMultiPattern):
-    prefix = '$'
 
 
 class AddressPat(ContainerBase):
@@ -561,13 +553,9 @@ class ArmPatternTransformer(Transformer):
         (result,) = parts
         return result
 
-    def uni_code(self, parts):
+    def code_line(self, parts):
         (code,) = parts
-        return CommandPat(UniCodeLine(code))
-
-    def multi_code(self, parts):
-        (code,) = parts
-        return CommandPat(MultiCodeLine(code))
+        return CommandPat(CodeLine(code))
 
     def capture_opt(self, parts):
         (cap,) = parts

@@ -104,8 +104,7 @@ ONE_LINER: /[^\n]+/
 special_command: "pattern" [_WS] identifier [_WS] "{" [_WS] _NL block_pat _NL [_WS] "}" -> pattern_def
 
 command_pat: instruction_pat [_COMMENT] -> instruction_line
-           | "!" [_WS] ONE_LINER -> uni_code
-           | "$" [_WS] ONE_LINER -> multi_code
+           | "!" [_WS] ONE_LINER -> code_line
            | "%" [_WS] special_command
 
 line_pat: command_pat -> lone_command

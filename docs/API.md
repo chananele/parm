@@ -55,9 +55,11 @@ from parm.envs.ida import idapython_create_program
 prg = idapython_create_program()
 
 match = prg.find_symbol('func_impl').match("""
-    !xrefs_to
-    !fn_start
-func:
+    !match_single(xrefs_to, "callers")
+    {
+        !fn_start
+        func:
+    }
 """)
 print('func:', match['func'])
 ```
@@ -103,10 +105,12 @@ from parm.envs.ida import idapython_create_program
 prg = idapython_create_program()
 
 match = prg.find_symbol('func_impl').match("""
-    !xrefs_to
-    $expect(len(cursors) == 2)
-    !fn_start
-func:
+    !expect(xrefs_to) == 2
+    !match_all(xrefs_to)
+    {
+        !fn_start
+        func:
+    }
 """)
 ```
 
@@ -156,15 +160,17 @@ prg = idapython_create_program()
 
 match = prg.create_cursor(0).match("""
     B   @:reset_logic
-    !jump_target
-    !xrefs_to
-    BL  @:reset_logic  // Filter out any jumps (as opposed to calls) 
+    !goto('reset_logic')
     
-    %pattern p {
-        MOV @:reg, R0
+    !filter
+    {
+        BL @:reset_logic
     }
     
-    $match_all(p, 'reg_saves')
+    !match_all(xrefs_to, 'reg_saves')
+    {
+        MOV @:reg, R0
+    }
 """)
 for s in match.subs['reg_saves']:
     print(s['reg'])
@@ -188,15 +194,14 @@ prg = idapython_create_program()
 match = prg.create_cursor(0).match("""
     B   @:reset_logic
     !jump_target
-    !xrefs_to
-    BL  @:reset_logic  // Filter out any jumps (as opposed to calls) 
     
-    %pattern p {
+    !match_single(xrefs_to)
+    {
+        BL  @:reset_logic  // Filter out any jumps (as opposed to calls) 
         MOV R12, R0
         ADR R0, @:storage
         STR R12, R0
     }
-    $match_single(p)
 """)
 s = match.sub[0]
 print(s['storage'])

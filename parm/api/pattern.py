@@ -6,6 +6,17 @@ from parm.api.cursor import Cursor
 from parm.api.exceptions import NoMatches
 from parm.api.match_result import MatchResult
 
+from parm.extensions.extension_base import create_extension_registry
+from parm.extensions.execution_context import ExecutionContext
+
+
+def load_extension_modules():
+    from parm.extensions import default_extensions
+    return [default_extensions]
+
+
+load_extension_modules()
+
 
 class LinePattern:
     @property
@@ -16,7 +27,7 @@ class LinePattern:
         raise NotImplementedError()
 
 
-class LineUniPattern(LinePattern):
+class CodeLinePatternBase(LinePattern):
     @property
     def code(self):
         raise NotImplementedError()
@@ -25,30 +36,17 @@ class LineUniPattern(LinePattern):
     def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
         next_cursors = []
         for c in cursors:
-            next_cursor = c
 
-            def set_next_cursor(nc):
-                nonlocal next_cursor
-                next_cursor = nc
+            local_env = env.clone()
+            execution_context = ExecutionContext(c, match_result)
+            registry = create_extension_registry(execution_context, local_env)
+            registry.load_extensions()
+            local_env.run_code(self.code)
 
-            with env.snapshot():
-                env.add_uni_globals(cursor=c, match_result=match_result, set_next_cursor=set_next_cursor)
-                env.run_uni_code(self.code)
-
+            next_cursor = execution_context.cursor
             next_cursors.append(next_cursor)
+
         return next_cursors
-
-
-class LineMultiPattern(LinePattern):
-    @property
-    def code(self):
-        raise NotImplementedError()
-
-    @default_match_result
-    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
-        with env.snapshot():
-            env.add_multi_globals(match_result=match_result, cursors=cursors)
-            return env.run_multi_code(self.code)
 
 
 class BlockPattern:

@@ -14,31 +14,8 @@ def _repeat(initial, func, count):
 
 
 class Program:
-
-    _post_create_hooks = []
-
     def __init__(self, env: Env):
         self.env = env
-        self._add_generic_injections()
-        self._run_post_create_hooks()
-
-    def _add_generic_injections(self):
-        self.env.add_uni_fixture('next', lambda cursor: cursor.next())
-        self.env.add_uni_fixture('prev', lambda cursor: cursor.prev())
-
-        def skip(count, cursor, set_next_cursor):
-            next_cursor = _repeat(cursor, lambda c: c.next(), count)
-            set_next_cursor(next_cursor)
-
-        self.env.add_uni_func('skip', skip)
-
-    @classmethod
-    def add_post_create_hook(cls, hook):
-        cls._post_create_hooks.append(hook)
-
-    def _run_post_create_hooks(self):
-        for hook in self._post_create_hooks:
-            hook(self)
 
     @default_match_result
     def find_all(self, pattern, match_result: MatchResult):

@@ -29,8 +29,8 @@ class IDAProgram(Program):
         raise NotImplementedError()
 
     def add_env_fixtures(self):
-        self.env.add_uni_fixture('xrefs_to', self.get_xrefs_to)
-        self.env.add_uni_fixture('func', self.get_func)
+        self.env.inject_magic_getter('xrefs_to', self.get_xrefs_to)
+        self.env.inject_magic_getter('func', self.get_func)
 
 
 def idapython_create_program() -> IDAProgram:
