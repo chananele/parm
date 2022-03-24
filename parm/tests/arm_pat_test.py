@@ -61,3 +61,9 @@ class ArmPatternTest(TestCase):
         self._pt('''
         !print("""${ bad }""")
         ''')
+        self._pt("""
+        !print('${ bad }')
+        """)
+        self._pt('''
+        !print("${ bad }")
+        ''')
