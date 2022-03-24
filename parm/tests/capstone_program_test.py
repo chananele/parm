@@ -32,12 +32,3 @@ class CapstoneProgramTest(TestCase):
         mr = MatchResult()
         prg.find_single(pattern, match_result=mr)
         assert mr['test'].address == 0x10458
-
-
-def main():
-    c = CapstoneProgramTest()
-    c.test_find_single()
-
-
-if __name__ == "__main__":
-    main()

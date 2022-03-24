@@ -1,4 +1,4 @@
-from typing import IO, Iterator, Tuple, Optional
+from typing import IO, Tuple, Optional
 
 from pathlib import Path
 from capstone import CS_ARCH_ARM, CS_ARCH_X86, CS_MODE_ARM, Cs
@@ -82,16 +82,19 @@ class CapstoneProgram(ArmSnippetProgram):
             self.analyze(self._cursors[before:after])
 
 
-def read_elf_text_section(binary_file: IO[bytes], size: int = None) -> Tuple[int, bytes]:
+def read_elf_text_section(binary: IO[bytes], size: int = None) -> Tuple[int, bytes]:
     """
-    :param IO[bytes] binary_file: An open elf file.
-    :param int size: The number of bytes to read.
+    Read a requested number of bytes from the text section of a given elf file.
+    
+
+    :param binary: An open elf file
+    :param size: The number of bytes to read
 
     :returns: A tuple containing the offset of the text section in the binary, and the requested number of bytes
-        from said text section.
-    :raises ELFError: If the given file is not recognized as a valid elf.
+        from said text section
+    :raises ELFError: If the given file is not recognized as a valid elf
     """
-    elf = ELFFile(binary_file)
+    elf = ELFFile(binary)
     code = elf.get_section_by_name('.text')
     offset = code['sh_addr']
 
