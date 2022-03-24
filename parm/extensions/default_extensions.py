@@ -4,10 +4,9 @@ from parm.api.asm_cursor import AsmCursor
 from parm.api.common import find_single
 
 from parm.extensions.extension_base import ExecutionExtensionBase
-from parm.extensions.extension_base import injected_func, register_extension, magic_getter, magic_setter
+from parm.extensions.extension_base import injected_func, magic_getter, magic_setter
 
 
-@register_extension
 class DefaultExtension(ExecutionExtensionBase):
 
     @magic_getter('match_result')
@@ -47,3 +46,11 @@ class DefaultExtension(ExecutionExtensionBase):
         for c in cursors:
             mr = ms.new_scope()
             c.match(pattern, mr, **kwargs)
+
+
+class AnalysisExtension(ExecutionExtensionBase):
+    def get_xrefs_to(self, cursor):
+        raise NotImplementedError()
+
+    def get_xrefs_from(self, cursor):
+        raise NotImplementedError()

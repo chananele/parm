@@ -5,6 +5,8 @@ from parm.api.match_result import MatchResult
 from parm.api.asm_cursor import AsmCursor, NullCursor
 from parm.api.common import find_all, find_first, find_single, default_match_result
 
+from parm.extensions.default_extensions import DefaultExtension
+
 
 def _repeat(initial, func, count):
     result = initial
@@ -16,6 +18,13 @@ def _repeat(initial, func, count):
 class Program:
     def __init__(self, env: Env):
         self.env = env
+        self.register_default_extensions()
+
+    def register_extension_type(self, ext_type):
+        self.env.register_extension_type(ext_type)
+
+    def register_default_extensions(self):
+        self.register_extension_type(DefaultExtension)
 
     @default_match_result
     def find_all(self, pattern, match_result: MatchResult):

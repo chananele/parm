@@ -1,11 +1,13 @@
-from pathlib import Path
 from typing import IO, Iterator, Tuple, Optional
 
-from elftools.elf.elffile import ELFFile
-from parm.api.asm_cursor import AsmCursor
-from parm.programs.snippet import ArmSnippetProgram
-
+from pathlib import Path
 from capstone import CS_ARCH_ARM, CS_ARCH_X86, CS_MODE_ARM, Cs
+from elftools.elf.elffile import ELFFile
+
+from parm.api.asm_cursor import AsmCursor
+from parm.extensions.extension_base import magic_getter
+from parm.extensions.default_extensions import AnalysisExtension
+from parm.programs.snippet import ArmSnippetProgram
 
 CAPSTONE_ARCH = {
     "arm": CS_ARCH_ARM,
@@ -22,6 +24,16 @@ def translate_mode(arch, mode):
     return CS_MODE_ARM
 
 
+class CapstoneAnalysisExt(AnalysisExtension):
+    @magic_getter('xrefs_to')
+    def get_xrefs_to(self, cursor):
+        raise NotImplementedError()
+
+    @magic_getter('xrefs_from')
+    def get_xrefs_from(self, cursor):
+        raise NotImplementedError()
+
+
 class CapstoneProgram(ArmSnippetProgram):
     def __init__(self, code: str = "", auto_analyze: bool = False):
         super().__init__()
@@ -29,7 +41,10 @@ class CapstoneProgram(ArmSnippetProgram):
         self.auto_analyze = auto_analyze
         if code:
             self.add_code_block(code)
-        self.add_injections()
+
+    def register_default_extensions(self):
+        super(CapstoneProgram, self).register_default_extensions()
+        self.register_extension_type(CapstoneAnalysisExt)
 
     def find_symbol(self, symbol_name) -> AsmCursor:
         raise NotImplementedError()
@@ -65,12 +80,6 @@ class CapstoneProgram(ArmSnippetProgram):
 
         if self.auto_analyze:
             self.analyze(self._cursors[before:after])
-
-    def get_xrefs_to(self, cursor) -> Iterator[AsmCursor]:
-        raise NotImplementedError()
-
-    def add_injections(self):
-        self.env.inject_magic_getter('xrefs_to', self.get_xrefs_to)
 
 
 def read_elf_text_section(binary_file: IO[bytes], size: int = None) -> Tuple[int, bytes]:
