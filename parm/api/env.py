@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from parm.api.exceptions import ExpectFailure
 from parm.api.embedded_ns import EmbeddedLocalNS
 
+from parm.extensions.extension_registry import ExtensionRegistryFactory
 from parm.extensions.injection_context import InjectionContext
 
 
@@ -12,8 +13,15 @@ def expect(cond):
 
 
 class Env(InjectionContext):
-    def __init__(self, ns):
+    def __init__(self, ns, extension_registration_factory):
         self._ns = ns  # type: EmbeddedLocalNS
+        self.extension_registration_factory = extension_registration_factory
+
+    def register_extension_type(self, ext_type):
+        self.extension_registration_factory.register_extension_type(ext_type)
+
+    def create_extension_registry(self, *args, **kwargs):
+        return self.extension_registration_factory.create_registry(*args, **kwargs)
 
     @contextmanager
     def snapshot(self):
@@ -22,7 +30,7 @@ class Env(InjectionContext):
 
     @classmethod
     def create_default_env(cls):
-        env = cls(EmbeddedLocalNS())
+        env = cls(EmbeddedLocalNS(), ExtensionRegistryFactory())
         env._add_default_injections()
         return env
 
@@ -30,7 +38,7 @@ class Env(InjectionContext):
         self.add_global('expect', expect)
 
     def clone(self):
-        return Env(self._ns.clone())
+        return Env(self._ns.clone(), self.extension_registration_factory.clone())
 
     def inject_magic_getter(self, name, callback, *args, **kwargs):
         self._ns.add_magic_getter(name, callback, *args, **kwargs)

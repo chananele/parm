@@ -1,7 +1,16 @@
-from lark import Transformer, Token
+from lark import Token, Transformer
 
+REGS = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10',
+        'r11', 'r12', 'r13', 'r14', 'r15')
 
-REGS = ('r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'sp', 'lr', 'pc')
+REG_SYNONYMS = {
+    'r9': 'sb',
+    'r11': 'fp',
+    'r12': 'ip',
+    'r13': 'sp',
+    'r14': 'lr',
+    'r15': 'pc'
+}
 
 
 def _build_reg_index():
@@ -9,6 +18,13 @@ def _build_reg_index():
     for i, r in enumerate(REGS):
         result[r.upper()] = i
         result[r.lower()] = i
+        try:
+            syn = REG_SYNONYMS[r]
+        except KeyError:
+            pass
+        else:
+            result[syn.upper()] = i
+            result[syn.lower()] = i
     return result
 
 
@@ -43,7 +59,7 @@ class Line:
 class Reg:
     def __init__(self, name):
         assert isinstance(name, str)
-        assert name.lower() in REGS
+        assert name in REG_INDEX
         self.name = name
 
     def __eq__(self, other):
@@ -275,18 +291,19 @@ class ArmTransformer(Transformer):
         assert isinstance(opcode, Token)
         return Instruction(opcode.value, operands)
 
+    def flexible_operand(self, parts):
+        (op, ) = parts
+        return op
+
     def arithmetic_operands(self, operands):
         op_cnt = len(operands)
-        assert op_cnt in (2, 3)
-        if op_cnt == 2:
-            rd, rm_shift = operands
-            assert isinstance(rd, Reg)
-            return [rd, rd, rm_shift]
-        else:
-            rd, rn, rm_shift = operands
-            assert isinstance(rd, Reg)
-            assert isinstance(rn, Reg)
-            return [rd, rn, rm_shift]
+        assert op_cnt == 3
+        rd, rn, rm_shift = operands
+        assert isinstance(rd, Reg)
+        if rn is None:
+            rn = rd
+        assert isinstance(rn, Reg)
+        return [rd, rn, rm_shift]
 
     def mem_single_operand(self, operands):
         return operands

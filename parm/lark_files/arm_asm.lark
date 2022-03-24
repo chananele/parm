@@ -1,7 +1,16 @@
 CONDITION_LO: "eq" | "ne" | "cs" | "hs" | "cc" | "lo" | "mi" | "pl" | "vs" | "vc" | "hi" | "ls" | "ge" | "lt" | "gt" | "le" | "al"
 CONDITION_HI: "EQ" | "NE" | "CS" | "HS" | "CC" | "LO" | "MI" | "PL" | "VS" | "VC" | "HI" | "LS" | "GE" | "LT" | "GT" | "LE" | "AL"
 
-REG: "r"i "0".."9" | "r10"i | "r11"i | "r12"i | "sp"i | "lr"i | "pc"i
+REG: "r"i "0".."8" | R9 | "r10"i | R11 | R12 | R13 | R14 | R15
+
+// register synonyms
+// TODO: Consider a1-a4 for r0-r4 and v1-v8 for r4-r11)
+R9: "r9"i | "sb"i
+R11: "r11"i | "fp"i
+R12: "r12"i | "ip"i
+R13: "r13"i | "sp"i
+R14: "r14"i | "lr"i
+R15: "r15"i | "pc"i
 
 S_LO: "s"
 S_HI: "S"
@@ -22,15 +31,19 @@ OPCODE_BRANCH_IND_LO: BRANCH_IND_LO [CONDITION_LO]
 OPCODE_BRANCH_IND_HI: BRANCH_IND_HI [CONDITION_HI]
 OPCODE_BRANCH_IND: OPCODE_BRANCH_IND_LO | OPCODE_BRANCH_IND_HI
 
-SHIFT_OP_LO: "lsl" | "lsr" | "asr" | "rrx" | "ror"
-SHIFT_OP_HI: "LSL" | "LSR" | "ASR" | "RRX" | "ROR"
+SHIFT_OP_LO: "lsl" | "lsr" | "asr" | "ror"
+SHIFT_OP_HI: "LSL" | "LSR" | "ASR" | "ROR"
 SHIFT_OP: SHIFT_OP_LO | SHIFT_OP_HI
 
-SHIFT_VAL: "1".."9"
-         | ("1" | "2") "1".."9"
-         | "30" | "31"
+SHIFT_UNARY_OP_LO: "rrx"
+SHIFT_UNARY_OP_HI: "RRX"
+SHIFT_UNARY_OP: SHIFT_UNARY_OP_LO | SHIFT_UNARY_OP_HI
 
-SHIFT: SHIFT_OP "#" SHIFT_VAL
+SHIFT_VAL: REG
+         | "#" ("1".."9" | ("1" | "2") "1".."9" | "30" | "31") // immediate value between 1 - 31
+
+SHIFT: SHIFT_OP [_WS] SHIFT_VAL
+     | SHIFT_UNARY_OP
 
 BASE_OPCODE_MEM_SINGLE_LO: "ldr" | "ldrb" | "ldrh" | "str" | "strb" | "strh"
 BASE_OPCODE_MEM_SINGLE_HI: "LDR" | "LDRB" | "LDRH" | "STR" | "STRB" | "STRH"
@@ -64,16 +77,49 @@ ARITHMETIC_HI: "ADD" | "SUB" | "RSB" | "ADC" | "SBC" | "RSC"
 OPCODE_ARITHMETIC: ARITHMETIC_LO [S_LO] [CONDITION_LO]
                  | ARITHMETIC_HI [S_HI] [CONDITION_HI]
 
+BITWISE_LO: "and" | "orr" | "eor" | "bic"
+BITWISE_HI: "AND" | "ORR" | "EOR" | "BIC"
+OPCODE_BITWISE: BITWISE_LO [S_LO] [CONDITION_LO]
+              | BITWISE_HI [S_HI] [CONDITION_HI]
+
+COMPARE_LO: "cmp" | "cmn"
+COMPARE_HI: "CMP" | "CMN"
+OPCODE_COMPARE: COMPARE_LO [CONDITION_LO]
+              | COMPARE_HI [CONDITION_HI]
+
+OPCODE_MULTIPLY: "mul" [S_LO] [CONDITION_LO]
+               | "MUL" [S_LO] [CONDITION_LO]
+
+OPCODE_SHIFT: SHIFT_OP_LO [S_LO] [CONDITION_LO]
+            | SHIFT_OP_HI [S_HI] [CONDITION_HI]
+OPCODE_SHIFT_UNARY: SHIFT_UNARY_OP_LO [S_LO] [CONDITION_LO]
+                  | SHIFT_UNARY_OP_HI [S_HI] [CONDITION_LO]
+
 reg: REG
 reg_range: reg [_WS] "-" [_WS] reg
 reg_list: (reg | reg_range) ([_WS] "," [_WS] (reg | reg_range))*
 
-mov_operands: reg [_WS] "," [_WS] (shifted_reg | immediate)
+flexible_operand: (shifted_reg | immediate)
+
+two_reg_operands: reg [_WS] "," [_WS] reg
+
+reg_only_operands: two_reg_operands [[_WS] "," [_WS] reg ]
+
+mov_operands: reg [_WS] "," [_WS] flexible_operand
 
 shifted_reg: reg [_WS] ["," [_WS] SHIFT]
 
-arithmetic_operands: reg [_WS] "," [_WS] shifted_reg
-                   | reg [_WS] "," [_WS] reg [_WS] "," [_WS] shifted_reg
+arithmetic_operands: reg [_WS] "," [[_WS] reg [_WS] ","] [_WS] flexible_operand
+
+bitwise_operands: reg [_WS] "," [[_WS] reg [_WS] ","] [_WS] flexible_operand
+
+compare_operands: reg [_WS] "," [_WS] flexible_operand
+
+multiply_operands: reg_only_operands
+
+shift_operands: reg [_WS] "," [_WS] reg [_WS] "," [_WS] SHIFT_VAL
+
+shift_unary_operands: two_reg_operands
 
 mem_single_operand: reg [_WS] "," [_WS] "[" [_WS] reg [_WS] ["," [_WS] immediate [_WS]] "]" -> mem_expr_immediate
                   | reg [_WS] "," [_WS] "[" [_WS] reg [_WS] "," [_WS] immediate [_WS] "]" [_WS] "!" -> mem_expr_immediate_pre
@@ -86,7 +132,7 @@ mem_multi_operand: reg [_WS] "," [_WS] "{" [_WS] reg_list [_WS] "}"
 stack_mem_multi_operand: "{" [_WS] reg_list [_WS] "}"
 
 branch_ind_operands: reg
-branch_rel_operands: address
+branch_rel_operands: ["#"] address
 
 instruction: OPCODE_MEM_SINGLE _WS mem_single_operand [_WS]
            | OPCODE_MEM_MULTI _WS mem_multi_operand [_WS]
@@ -95,12 +141,18 @@ instruction: OPCODE_MEM_SINGLE _WS mem_single_operand [_WS]
            | OPCODE_BRANCH_IND _WS branch_ind_operands [_WS]
            | OPCODE_MOV _WS mov_operands [_WS]
            | OPCODE_ARITHMETIC _WS arithmetic_operands [_WS]
+           | OPCODE_BITWISE _WS bitwise_operands [_WS]
+           | OPCODE_COMPARE _WS compare_operands [_WS]
+           | OPCODE_MULTIPLY _WS multiply_operands [_WS]
+           | OPCODE_SHIFT _WS shift_operands [_WS]
+           | OPCODE_SHIFT_UNARY _WS shift_unary_operands [_WS]
 
 DEC_NUM: "0" | "1".."9" DIGIT*
 HEX_NUM: "0x" HEXDIGIT+
-NUM: DEC_NUM | HEX_NUM
+UNSIGNED_NUM: DEC_NUM | HEX_NUM
+NUM: ["-"] UNSIGNED_NUM
 
-address: NUM
+address: UNSIGNED_NUM
 
 line: [_WS] [address [_WS] ":" [_WS]] instruction [_WS]
 

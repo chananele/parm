@@ -6,16 +6,7 @@ from parm.api.asm_cursor import AsmCursor
 from parm.api.exceptions import NoMatches
 from parm.api.match_result import MatchResult
 
-from parm.extensions.extension_base import create_extension_registry
 from parm.extensions.execution_context import ExecutionContext
-
-
-def load_extension_modules():
-    from parm.extensions import default_extensions
-    return [default_extensions]
-
-
-load_extension_modules()
 
 
 class LinePattern:
@@ -45,7 +36,7 @@ class CodeLinePatternBase(LinePattern):
             local_env.add_globals(**kwargs)
             local_env.add_locals(**self.vars)
             execution_context = ExecutionContext(c, match_result)
-            registry = create_extension_registry(execution_context, local_env)
+            registry = local_env.create_extension_registry(execution_context, local_env)
             registry.load_extensions()
             local_env.exec(self.code)
 

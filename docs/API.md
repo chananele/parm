@@ -6,8 +6,10 @@ The APIs are still **very much** a work in progress, and subject to change.
 
 #### Basic Pattern Matching
 The following example shows how to match a pattern at a given address.
+
 ```python
-from parm.envs.ida import idapython_create_program
+from parm.programs.ida import idapython_create_program
+
 prg = idapython_create_program()
 
 # Match a pattern at a specified address
@@ -23,8 +25,10 @@ print(f'Reg: {result["reg"]}')
 Sometimes, you want to run a pattern match on an entire program.
 In the following example, a very simple pattern is used to try and
 find all function prologues in a program.
+
 ```python
-from parm.envs.ida import idapython_create_program
+from parm.programs.ida import idapython_create_program
+
 prg = idapython_create_program()
 
 results = prg.find_all("""
@@ -50,8 +54,10 @@ Aside from that, code patterns may do anything - they are just regular
 python code!
 For example, a code pattern may also modify the current match context,
 by adding matches.
+
 ```python
-from parm.envs.ida import idapython_create_program
+from parm.programs.ida import idapython_create_program
+
 prg = idapython_create_program()
 
 match = prg.find_symbol('func_impl').match("""
@@ -100,8 +106,10 @@ line, whereas multi-patterns are called once with all the cursors at
 the current line.
 
 An example usage of a code multi-pattern is given below:
+
 ```python
-from parm.envs.ida import idapython_create_program
+from parm.programs.ida import idapython_create_program
+
 prg = idapython_create_program()
 
 match = prg.find_symbol('func_impl').match("""
@@ -154,8 +162,10 @@ Nested patterns are commonly used in conjunction with
   greater than zero.
 
 An example using a nested match along with `$match_all`:
+
 ```python
-from parm.envs.ida import idapython_create_program
+from parm.programs.ida import idapython_create_program
+
 prg = idapython_create_program()
 
 match = prg.create_cursor(0).match("""
@@ -187,8 +197,10 @@ the cursor currently points.
 
 Below, another example is given, using a nested match along
 with `$match_single`:
+
 ```python
-from parm.envs.ida import idapython_create_program
+from parm.programs.ida import idapython_create_program
+
 prg = idapython_create_program()
 
 match = prg.create_cursor(0).match("""
@@ -236,7 +248,8 @@ variable.
 This is demonstrated in the following example:
 
 ```python
-from parm.envs.ida import idapython_create_program
+from parm.programs.ida import idapython_create_program
+
 prg = idapython_create_program()
 
 match = prg.create_cursor(0).match("""
