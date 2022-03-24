@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import IO, Iterator, Tuple, Union
+from typing import IO, Iterator, Tuple, Union, Optional
 
 from elftools.elf.elffile import ELFError, ELFFile
 from parm.api.asm_cursor import AsmCursor
@@ -79,7 +79,7 @@ def disassemble_binary_file(
         arch: str,
         mode: int,
         offset: int = 0,
-        size: Union[int, None] = None) -> Union[bytes, bool]:
+        size: Optional[int] = None) -> str:
     # TODO: In case of an elf maybe perform relocations and resolve symbols...
     with binary_path.open('rb') as bf:
         if not is_elf_file(bf):
@@ -93,24 +93,25 @@ def disassemble_binary_file(
                 )
             except ELFError:
                 print("offset must be specified on non-elf binaries")
-                return
+                raise
 
     if not ops:
-        print("Nothing to disassemble ?")
-        return False
+        raise ValueError("Nothing to disassemble")
 
     # TODO: get capstone mode according to arch-mode
     try:
         md = Cs(CAPSTONE_ARCH[arch], CS_MODE_ARM)
-        if not (dis := md.disasm(ops, offset)):
-            return False
-        return "\n".join(f"0x{inst.address:x}: {inst.mnemonic} {inst.op_str}"
-                         for inst in dis)
+        dis = md.disasm(ops, offset)
     except CsError as e:
-        print(
+        raise ValueError(
             f"Failed initiating capstone for arch: {(CAPSTONE_ARCH[arch], CS_MODE_ARM)} with: {str(e)}"
         )
-        return False
+
+    if not dis:
+        raise ValueError('Disassembly was empty!')
+
+    return "\n".join(f"0x{inst.address:x}: {inst.mnemonic} {inst.op_str}"
+                     for inst in dis)
 
 
 def capstone_create_program_from_file(
@@ -118,7 +119,7 @@ def capstone_create_program_from_file(
         arch: str = "arm",
         mode: int = 32,
         offset: int = 0,
-        size: Union[int, None] = None) -> CapstoneProgram:
+        size: Optional[int] = None) -> CapstoneProgram:
     if not (asm := disassemble_binary_file(binary_path, arch, mode, offset,
                                            size)):
         raise ValueError(f'Failed disassembling "{binary_path.name}"')

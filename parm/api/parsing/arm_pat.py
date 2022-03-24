@@ -431,7 +431,9 @@ class Address:
         return f'0x{self.address:X}'
 
     def match(self, address, _e: Env, _m: MatchResult):
-        if address != self.address:
+        if not isinstance(address, arm_asm.Address):
+            return False
+        if address.address != self.address:
             raise PatternValueMismatch(self.address, address)
 
 

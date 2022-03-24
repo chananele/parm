@@ -9,6 +9,8 @@ setup(
         'lark',
         'chainmap',
         'pytest',
+        'pyelftools',
+        'capstone',
     ],
     entry_points={
         'console_scripts': [
