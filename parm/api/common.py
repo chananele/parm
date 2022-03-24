@@ -49,25 +49,25 @@ default_env = default_initialize('env', Env.create_default_env)
 
 
 @default_match_result
-def find_all(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult) -> Iterable[AsmCursor]:
+def find_all(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
     ms = match_result.new_multi_scope()
     for c in cursors:
         scope = ms.new_scope()
         with scope.transact():
             try:
                 with scope.transact():
-                    c.match(pattern, scope)
+                    c.match(pattern, scope, **kwargs)
                     yield c
             except PatternMismatchException:
                 pass
 
 
 @default_match_result
-def find_first(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult) -> AsmCursor:
+def find_first(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult, **kwargs) -> AsmCursor:
     for c in cursors:
         try:
             with match_result.transact():
-                c.match(pattern, match_result)
+                c.match(pattern, match_result, **kwargs)
                 return c
         except PatternMismatchException:
             pass
@@ -75,21 +75,20 @@ def find_first(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult)
 
 
 @default_match_result
-def find_single(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult) -> AsmCursor:
-    with match_result.transact():
-        ms = match_result.new_temp_multi_scope()
-        match = None
-        for c in cursors:
-            try:
-                with ms.transact():
-                    scope = ms.new_scope()
-                    c.match(pattern, scope)
-            except PatternMismatchException:
-                continue
-            if match is not None:
-                raise TooManyMatches()
-            match = c
-        if match is None:
-            raise NoMatches()
-        match_result.merge_multi_scope(ms)
-        return match
+def find_single(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult, **kwargs) -> AsmCursor:
+    ms = match_result.new_temp_multi_scope()
+    match = None
+    for c in cursors:
+        try:
+            with ms.transact():
+                scope = ms.new_scope()
+                c.match(pattern, scope, **kwargs)
+        except PatternMismatchException:
+            continue
+        if match is not None:
+            raise TooManyMatches()
+        match = c
+    if match is None:
+        raise NoMatches()
+    match_result.merge_multi_scope(ms)
+    return match

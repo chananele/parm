@@ -23,7 +23,7 @@ class PreInitAsmCursor(AsmCursor):
     def address(self):
         return None
 
-    def match(self, pattern, match_result: MatchResult = None) -> MatchResult:
+    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> MatchResult:
         raise ValueError('Nothing matches a PreInit cursor')
 
     def next(self):
@@ -46,7 +46,7 @@ class PostTermAsmCursor(AsmCursor):
     def address(self):
         return None
 
-    def match(self, pattern, match_result: MatchResult = None) -> MatchResult:
+    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> MatchResult:
         raise ValueError('Nothing matches a PostTerm cursor')
 
     def next(self):
@@ -79,8 +79,8 @@ class SnippetAsmCursor(AsmCursor):
         return self._line.address
 
     @default_match_result
-    def match(self, pattern, match_result: MatchResult) -> MatchResult:
-        return pattern.match(self, self.env, match_result)
+    def match(self, pattern, match_result: MatchResult, **kwargs) -> MatchResult:
+        return pattern.match(self, self.env, match_result, **kwargs)
 
     def next(self):
         return self._next
