@@ -32,12 +32,17 @@ class CodeLinePatternBase(LinePattern):
     def code(self):
         raise NotImplementedError()
 
+    @property
+    def vars(self):
+        raise {}
+
     @default_match_result
     def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
         next_cursors = []
         for c in cursors:
 
             local_env = env.clone()
+            local_env.add_locals(**self.vars)
             execution_context = ExecutionContext(c, match_result)
             registry = create_extension_registry(execution_context, local_env)
             registry.load_extensions()

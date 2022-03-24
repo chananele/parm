@@ -101,11 +101,14 @@ _COMMENT: /\/\/[^\n]*/
 
 ONE_LINER: /[^\n]+/
 
-special_command: "pattern" [_WS] identifier [_WS] "{" [_WS] _NL block_pat _NL [_WS] "}" -> pattern_def
+CODE_PIECE: /([^\n\$]|(\$[^\{]))+/
+python_code_line: CODE_PIECE [_WS] ("${" [_WS] block_pat [_WS] "}" [_WS] CODE_PIECE [_WS])*
+
+python_code_lines: python_code_line (_NL python_code_line)*
 
 command_pat: instruction_pat [_COMMENT] -> instruction_line
-           | "!" [_WS] ONE_LINER -> code_line
-           | "%" [_WS] special_command
+           | "!" [_WS] python_code_line -> code_line
+           | "%%" [_WS] _NL python_code_lines _NL [_WS] "%%" -> code_lines
 
 line_pat: command_pat -> lone_command
         | line_address_pat [_WS] ":" [_WS] [_COMMENT] -> lone_address

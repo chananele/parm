@@ -1,3 +1,8 @@
+from typing import Iterable
+
+from parm.api.asm_cursor import AsmCursor
+from parm.api.common import find_single
+
 from parm.extensions.extension_base import ExecutionExtensionBase, injected, register_extension, magic_getter
 
 
@@ -18,3 +23,7 @@ class DefaultExtension(ExecutionExtensionBase):
     @magic_getter
     def prev_instruction(self):
         return self.cursor.prev()
+
+    @injected
+    def find_single(self, cursors: Iterable[AsmCursor], pattern):
+        return find_single(pattern, cursors, self.match_result)

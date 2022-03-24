@@ -46,7 +46,7 @@ class Env(InjectionContext):
     def add_local(self, name, value):
         self._ns.add_local(name, value)
 
-    def add_vars(self, **kwargs):
+    def add_locals(self, **kwargs):
         for k, v in kwargs.items():
             self.add_local(k, v)
 

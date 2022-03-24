@@ -2,6 +2,8 @@ from typing import Iterable
 
 from fnmatch import fnmatch
 from functools import wraps
+from collections import OrderedDict
+
 from lark import Transformer, Token
 
 from parm.api.parsing import arm_asm
@@ -163,10 +165,15 @@ class ShiftedRegPat:
         return f'{self.reg_pat}, {self.shift_pat}'
 
     def __repr__(self):
-        ps = [str(self.reg_pat)]
+        ps = [f'{self.reg_pat!r}']
         if self.shift_pat is not None:
-            ps.append(str(self.shift_pat))
+            ps.append(f'{self.shift_pat!r}')
         return f'ShiftedRegPat({", ".join(ps)})'
+
+    def __eq__(self, other):
+        if isinstance(other, ShiftedRegPat):
+            return self.reg_pat == other.reg_pat and self.shift_pat == other.shift_pat
+        return False
 
     @_single_consumer
     def consume(self, op, env: Env, match_result: MatchResult):
@@ -381,7 +388,7 @@ class ImmediatePat:
         return self.value == other.value
 
 
-class CodeLine(CodeLinePatternBase):
+class PureCodeLine(CodeLinePatternBase):
     @property
     def prefix(self):
         return '!'
@@ -496,6 +503,69 @@ class InstructionPat:
         return next_cursors
 
 
+class PythonCodeBase(CodeLinePatternBase):
+    var_ix = 0
+
+    def __init__(self, parts):
+        self.parts = parts
+        self._code, self._vars = self._gen_code()
+
+    @property
+    def code(self):
+        return self._code
+
+    @property
+    def vars(self):
+        return self._vars
+
+    @classmethod
+    def _gen_var(cls):
+        ix = cls.var_ix + 1
+        cls.var_ix = ix
+        return f'var_{ix}'
+
+    def _gen_code(self):
+        pieces = []
+        ns = OrderedDict()
+        for p in self.parts:
+            if isinstance(p, str):
+                pieces.append(p)
+                continue
+            assert isinstance(p, BlockPat), f'Parts: {self.parts}'
+            var = self._gen_var()
+            ns[var] = p
+            pieces.append(var)
+        return ''.join(pieces), ns
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.parts!r})'
+
+    def unquote(self):
+        strs = []
+        for p in self.parts:
+            if isinstance(p, str):
+                strs.append(p)
+                continue
+            assert isinstance(p, BlockPat)
+            strs.append(f'${{{p!s}}}')
+        return ''.join(strs)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self.parts == other.parts
+
+
+class PythonCodeLine(PythonCodeBase):
+    def __str__(self):
+        return f'!{self.unquote()}'
+
+
+class PythonCodeLines(PythonCodeBase):
+    def __str__(self):
+        return f'%%\n{self.unquote()}\n%%'
+
+
 class ArmPatternTransformer(Transformer):
     def opcode_wildcard(self, parts):
         (capture,) = parts
@@ -553,9 +623,30 @@ class ArmPatternTransformer(Transformer):
         (result,) = parts
         return result
 
+    def python_code_line(self, parts):
+        result = []
+        for p in parts:
+            if isinstance(p, Token):
+                result.append(p.value)
+                continue
+            assert isinstance(p, BlockPat)
+            result.append(p)
+        return result
+
+    def python_code_lines(self, parts):
+        flattened = []
+        for p in parts:
+            assert isinstance(p, list)
+            flattened.extend(p)
+        return flattened
+
     def code_line(self, parts):
-        (code,) = parts
-        return CommandPat(CodeLine(code))
+        (code_parts, ) = parts
+        return CommandPat(PythonCodeLine(code_parts))
+
+    def code_lines(self, parts):
+        (code_parts, ) = parts
+        return CommandPat(PythonCodeLines(code_parts))
 
     def capture_opt(self, parts):
         (cap,) = parts
