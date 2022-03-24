@@ -150,6 +150,9 @@ class SnippetProgram(Program):
         self._cursor_cache = {}
         self._data_blocks = []  # type: List[DataBlock]
 
+    def add_data_block(self, address, data):
+        self._data_blocks.append(DataBlock(address, data))
+
     def find_block(self, address):
         for block in self._data_blocks:
             if block.start_address <= address < block.end_address:

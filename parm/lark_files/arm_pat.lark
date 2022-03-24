@@ -156,19 +156,22 @@ python_code_line: CODE_PIECE [_WS] ("${" block_pat "}" [_WS] CODE_PIECE [_WS])* 
 
 python_code_lines: python_code_line (_NL python_code_line)*
 
-DB: ".db"
-DW: ".dw"
-DD: ".dd"
-DQ: ".dq"
-ASCII: ".ascii"
+_DB: ".db"
+_DW: ".dw"
+_DD: ".dd"
+_DQ: ".dq"
+_ASCII: ".ascii"
+_ASCIZ: ".asciz"
 
 data_val_pat: NUM | wildcard_s
+data_val_pats: data_val_pat ([_WS] "," [_WS] data_val_pat)*
 
-data_pat: DB _WS data_val_pat -> db
-        | DW _WS data_val_pat -> dw
-        | DD _WS data_val_pat -> dd
-        | DQ _WS data_val_pat -> dq
-        | ASCII _WS ESCAPED_STRING -> ascii
+data_pat: _DB _WS data_val_pats -> db
+        | _DW _WS data_val_pats -> dw
+        | _DD _WS data_val_pats -> dd
+        | _DQ _WS data_val_pats -> dq
+        | _ASCII _WS ESCAPED_STRING -> ascii
+        | _ASCIZ _WS ESCAPED_STRING -> asciz
 
 command_pat: instruction_pat [_COMMENT] -> instruction_line
            | "!" [_WS] python_code_line -> code_line

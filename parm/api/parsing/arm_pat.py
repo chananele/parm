@@ -1,4 +1,4 @@
-from typing import Iterable, Literal
+from typing import List, Literal
 
 from fnmatch import fnmatch
 from functools import wraps
@@ -599,11 +599,74 @@ class DataByte(SizedData):
         return 1
 
 
+class DataWord(SizedData):
+    @property
+    def size(self):
+        return 2
+
+
+class DataDword(SizedData):
+    @property
+    def size(self):
+        return 4
+
+
+class DataQword(SizedData):
+    @property
+    def size(self):
+        return 8
+
+
+class DataSeq(ContainerBase):
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        seq = self.value  # type: List
+        for p in seq:
+            cursor = p.match(cursor, env, match_result, **kwargs)
+        return cursor
+
+
+def data_pat_array(data_type):
+    return lambda data_seq: DataSeq([data_type(p) for p in data_seq])
+
+
+byte_pat_array = data_pat_array(DataByte)
+word_pat_array = data_pat_array(DataWord)
+dword_pat_array = data_pat_array(DataDword)
+qword_pat_array = data_pat_array(DataQword)
+
+
 # noinspection PyMethodMayBeStatic
 class ArmPatternTransformer(Transformer):
     def opcode_wildcard(self, parts):
         (capture,) = parts
         return OpcodePat('*', capture)
+
+    def data_val_pat(self, parts):
+        (val, ) = parts
+        if isinstance(val, Token):
+            return int(val, 0)
+        assert isinstance(val, WildcardSingle)
+        return val
+
+    def data_val_pats(self, parts):
+        (pats, ) = parts
+        return pats
+
+    def db(self, pats):
+        return byte_pat_array(pats)
+
+    def dw(self, pats):
+        return word_pat_array(pats)
+
+    def dd(self, pats):
+        return dword_pat_array(pats)
+
+    def dq(self, pats):
+        return qword_pat_array(pats)
+
+    def data_line(self, parts):
+        (pat, ) = parts
+        return pat
 
     def _opcode_pat(self, parts):
         pat, capture = parts

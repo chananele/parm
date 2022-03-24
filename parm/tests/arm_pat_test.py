@@ -69,4 +69,6 @@ class ArmPatternTest(TestCase):
         ''')
 
     def test_db(self):
-        self._pt('.db 0x1000')
+        expected = BlockPat([DataSeq([DataByte(0x1000)])])
+        pat = self._pt('.db 0x1000')
+        assert pat == expected
