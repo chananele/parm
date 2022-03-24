@@ -18,7 +18,11 @@ def _build_reg_index():
     for i, r in enumerate(REGS):
         result[r.upper()] = i
         result[r.lower()] = i
-        if (syn := REG_SYNONYMS.get(r)):
+        try:
+            syn = REG_SYNONYMS[r]
+        except KeyError:
+            pass
+        else:
             result[syn.upper()] = i
             result[syn.lower()] = i
     return result
