@@ -1,8 +1,12 @@
 import sys
 from pathlib import Path
+from typing import Iterable, Union
 
 import click
-from parm.envs.capstone import disassemble_binary_file
+from parm.api.match_result import MatchResult
+from parm.envs.capstone.env import (CapstoneProgram,
+                                    capstone_create_program_from_file,
+                                    disassemble_binary_file)
 from parm.resources import get_asciiart
 
 SUPPORTED_BUILDS = {
@@ -69,6 +73,16 @@ def dump(ctx_obj: dict, binary_path: Path, offset: int, size: int):
     click.echo(f"\nDumped successfully into {ctx_obj['output'].name} !")
 
 
+def generate_patterns(prg: CapstoneProgram,
+                      patterns_path: Path) -> Union[Iterable, bool]:
+    # TODO: read raw patterns into a list
+    patterns = []
+    try:
+        return [prg.create_pattern(pattern) for pattern in patterns]
+    except Exception:  # TODO: change to appropriate exception
+        return False
+
+
 @cli.group()
 @click.argument("binary_path", type=click.Path(exists=True), required=True)
 @click.option("--offset",
@@ -80,31 +94,41 @@ def dump(ctx_obj: dict, binary_path: Path, offset: int, size: int):
               type=int,
               default=None,
               help="size limit to disassemble, there is no limit by default")
-@click.option("--pattern",
+@click.option("--patterns_path",
               "-p",
               type=click.Path(exists=True),
               default=None,
               help="path to pattern file\\folder of patterns")
-def match(binary_path: Path, size: int, offset: int, patterns: Path):
+@click.pass_obj
+def match(ctx_obj: dict, binary_path: Path, size: int, offset: int,
+          patterns_path: Path):
     """
-    Match a binary\\asm file against given patterns
+    Match a binary file against given patterns
     """
-    # TODO: Disassemble binary file to asm
-    # TODO: Load a given binary file into a CapstoneProgram
     # TODO: Define pattern file format
-    # TODO: Read given patterns and feed into parm parsers
-    pass
+    prg = capstone_create_program_from_file(binary_path, ctx_obj["arch"],
+                                            ctx_obj["mode"], offset, size)
+
+    if not (patterns := generate_patterns(patterns_path)):
+        click.echo("Failed extracting patterns from {patterns.absolute()}",
+                   err=True)
+        return False
 
 
 @match.command()
-def findall():
+@click.pass_obj
+def findall(ctx_obj):
     """
     Search for all given patterns in the given input
     """
-    click.echo(
-        f"TODO: Search for all signatures in the given asm {ctx['asm']}")
-    click.echo('Not implemented yet', err=True)
-    raise NotImplementedError()
+    prg = ctx_obj["prg"]
+    mr = MatchResult()
+    for pattern in ctx_obj['patterns']:
+        with mr.transact():
+            result = prg.find_single(pattern, match_result=mr)
+            # TODO: do something with result
+
+    # TODO: dump match_result into ctx_obj["output"]
 
 
 @match.command()
