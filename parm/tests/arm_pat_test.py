@@ -50,3 +50,8 @@ class ArmPatternTest(TestCase):
         !match_single(xrefs_to, ${ MOV R1, R2 })
         """)
         assert pat == expected
+
+    def test_not_nested_patterns(self):
+        self._pt("""
+        !print('hello')  # ${ bad }
+        """)
