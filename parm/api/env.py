@@ -65,4 +65,8 @@ class Env(InjectionContext):
         return self._ns.evaluate(code, ns)
 
     def exec(self, code, ns=None):
-        return self._ns.execute(code, ns)
+        try:
+            return self._ns.execute(code, ns)
+        except IndentationError:
+            print(f'{code!r}')
+            raise

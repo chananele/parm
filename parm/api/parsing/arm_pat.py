@@ -525,6 +525,15 @@ class PythonCodeBase(CodeLinePatternBase):
         cls.var_ix = ix
         return f'var_{ix}'
 
+    @staticmethod
+    def _fix_indentation(code):
+        lines = code.split('\n')
+        stripped_lines = [line.lstrip() for line in lines]
+        prefixes = [line[:-len(stripped)] for line, stripped in zip(lines, stripped_lines)]
+        p = prefixes[0]
+        assert all(p == px for px in prefixes[1:])
+        return '\n'.join(stripped_lines)
+
     def _gen_code(self):
         pieces = []
         ns = OrderedDict()
@@ -536,7 +545,9 @@ class PythonCodeBase(CodeLinePatternBase):
             var = self._gen_var()
             ns[var] = p
             pieces.append(var)
-        return ''.join(pieces), ns
+        code = ''.join(pieces)
+        code = self._fix_indentation(code)
+        return code, ns
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.parts!r})'
