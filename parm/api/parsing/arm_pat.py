@@ -4,14 +4,14 @@ from fnmatch import fnmatch
 from functools import wraps
 from lark import Transformer, Token
 
-from parm.api.parsing import arm
+from parm.api.parsing import arm_asm
 from parm.api.parsing.utils import indent
 from parm.api.common import default_match_result
 from parm.api.exceptions import PatternMismatchException, OperandsExhausted
 from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMatches, NotAllOperandsMatched
 from parm.api.match_result import MatchResult
 from parm.api.env import Env
-from parm.api.cursor import Cursor
+from parm.api.asm_cursor import AsmCursor
 from parm.api.pattern import CodeLinePatternBase, BlockPattern
 
 
@@ -144,7 +144,7 @@ class ContainerBase:
 
 class CommandPat(ContainerBase):
     @default_match_result
-    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
         return self.value.match(cursors, env, match_result)
 
 
@@ -170,14 +170,14 @@ class ShiftedRegPat:
 
     @_single_consumer
     def consume(self, op, env: Env, match_result: MatchResult):
-        if isinstance(op, arm.ShiftedReg):
+        if isinstance(op, arm_asm.ShiftedReg):
             self.reg_pat.consume([op.reg], env, match_result, _expect_done)
             if self.shift_pat is None:
                 if op.shift is not None:
                     raise PatternValueMismatch(self, op)
             else:
                 self.shift_pat.consume([op.shift], env, match_result, _expect_done)
-        elif isinstance(op, arm.Reg):
+        elif isinstance(op, arm_asm.Reg):
             if self.shift_pat is not None:
                 self.shift_pat.consume([None], env, match_result, _expect_done)
             self.reg_pat.consume([op], env, match_result, _expect_done)
@@ -197,7 +197,7 @@ class MemMultiPat:
 
     @_single_consumer
     def consume(self, op, env: Env, match_result):
-        if not isinstance(op, arm.MemMulti):
+        if not isinstance(op, arm_asm.MemMulti):
             raise PatternTypeMismatch(self, op)
         _consume_list(self.reg_list, op.reg_list, env, match_result, _expect_done)
 
@@ -219,16 +219,16 @@ class RegRangePat:
         except IndexError:
             raise OperandsExhausted(self)
 
-        if not isinstance(s, arm.Reg):
+        if not isinstance(s, arm_asm.Reg):
             raise PatternTypeMismatch(self, s)
 
         self.start.consume([s], env, match_result, _expect_done)
-        s_index = arm.REG_INDEX[s.name]
+        s_index = arm_asm.REG_INDEX[s.name]
 
         for i, o in enumerate(operands[1:]):
-            if not isinstance(o, arm.Reg):
+            if not isinstance(o, arm_asm.Reg):
                 raise PatternTypeMismatch(self, o)
-            if arm.REG_INDEX[o.name] != s_index + i + 1:
+            if arm_asm.REG_INDEX[o.name] != s_index + i + 1:
                 break
             try:
                 with match_result.transact():
@@ -279,7 +279,7 @@ class Reg(ContainerBase):
     @_single_consumer
     @default_match_result
     def consume(self, op, _: Env, match_result: MatchResult):
-        if not isinstance(op, arm.Reg):
+        if not isinstance(op, arm_asm.Reg):
             raise PatternTypeMismatch(self.value, op)
         if self.value.lower() != op.name.lower():
             raise PatternValueMismatch(self.value, op)
@@ -364,7 +364,7 @@ class ImmediatePat:
 
     @_single_consumer
     def consume(self, op, env: Env, match_result: MatchResult):
-        if not isinstance(op, arm.Immediate):
+        if not isinstance(op, arm_asm.Immediate):
             raise PatternTypeMismatch(self, op)
 
         self.value.consume([op.value], env, match_result, _expect_done)
@@ -410,7 +410,7 @@ class AddressPat(ContainerBase):
         super().__init__(value)
 
     @default_match_result
-    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
         for cursor in cursors:
             self.value.match(cursor.address, env, match_result)
         return cursors
@@ -486,7 +486,7 @@ class InstructionPat:
         return self.opcode_pat == other.opcode_pat and self.operand_pats == other.operand_pats
 
     @default_match_result
-    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
         next_cursors = []
         for c in cursors:
             inst = c.instruction

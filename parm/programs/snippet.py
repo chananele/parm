@@ -1,7 +1,7 @@
-from parm.api.cursor import Cursor
+from parm.api.asm_cursor import AsmCursor
 from parm.api.common import default_match_result, default_env
 from parm.api.match_result import MatchResult
-from parm.api.parsing.arm import Instruction, ArmTransformer, Address
+from parm.api.parsing.arm_asm import Instruction, ArmTransformer, Address
 from parm.api.parsing.arm_pat import ArmPatternTransformer
 from parm.api.program import Program
 from parm.api.type_hints import ReversibleIterable
@@ -9,7 +9,7 @@ from parm.api.type_hints import ReversibleIterable
 from parm import parsers
 
 
-class PreInitCursor(Cursor):
+class PreInitAsmCursor(AsmCursor):
     @default_env
     def __init__(self, env, _next):
         super().__init__(env)
@@ -33,7 +33,7 @@ class PreInitCursor(Cursor):
         raise ValueError('No cursor comes before a PreInit cursor')
 
 
-class PostTermCursor(Cursor):
+class PostTermAsmCursor(AsmCursor):
     def __init__(self, env, _prev):
         super().__init__(env)
         self._prev = _prev
@@ -56,7 +56,7 @@ class PostTermCursor(Cursor):
         return self._prev
 
 
-class SnippetCursor(Cursor):
+class SnippetAsmCursor(AsmCursor):
     def __init__(self, env, program, line, _prev=None, _next=None):
         super().__init__(env)
         self._line = line
@@ -102,16 +102,16 @@ class SnippetProgram(Program):
         if isinstance(code_block, str):
             code_block = self._code_loader.load(code_block)
 
-        cursors = [SnippetCursor(self.env, self, line) for line in code_block]
+        cursors = [SnippetAsmCursor(self.env, self, line) for line in code_block]
         for i in range(len(cursors) - 1):
             cursors[i + 1].set_prev(cursors[i])
             cursors[i].set_next(cursors[i + 1])
         self._cursors.extend(cursors)
 
         term = cursors[-1]
-        term.set_next(PostTermCursor(self.env, term))
+        term.set_next(PostTermAsmCursor(self.env, term))
         init = cursors[0]
-        init.set_prev(PreInitCursor(self.env, init))
+        init.set_prev(PreInitAsmCursor(self.env, init))
 
         for c in cursors:
             adr = c.address
@@ -124,7 +124,7 @@ class SnippetProgram(Program):
     def get_instruction(self, address):
         return self.create_cursor(address).instruction
 
-    def create_cursor(self, address) -> Cursor:
+    def create_cursor(self, address) -> AsmCursor:
         if address is None:
             raise ValueError('Invalid cursor address!')
         try:
@@ -135,11 +135,11 @@ class SnippetProgram(Program):
     def create_pattern(self, pattern):
         return self._pattern_loader.load(pattern)
 
-    def find_symbol(self, symbol_name) -> Cursor:
+    def find_symbol(self, symbol_name) -> AsmCursor:
         raise NotImplementedError()
 
     @property
-    def cursors(self) -> ReversibleIterable[Cursor]:
+    def cursors(self) -> ReversibleIterable[AsmCursor]:
         return self._cursors
 
 
@@ -166,5 +166,5 @@ class ArmSnippetProgram(SnippetProgram):
     def __init__(self, env):
         super().__init__(env, pattern_loader=ArmPatternLoader(), code_loader=ArmCodeLoader())
 
-    def find_symbol(self, symbol_name) -> Cursor:
+    def find_symbol(self, symbol_name) -> AsmCursor:
         raise NotImplementedError()

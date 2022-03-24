@@ -1,7 +1,7 @@
 from typing import Iterator
 
 from parm.api.env import Env
-from parm.api.cursor import Cursor
+from parm.api.asm_cursor import AsmCursor
 from parm.api.func import Func
 from parm.api.program import Program
 
@@ -25,7 +25,7 @@ class IDAProgram(Program):
     def get_func(self, cursor) -> IDAFunc:
         raise NotImplementedError()
 
-    def get_xrefs_to(self, cursor) -> Iterator[Cursor]:
+    def get_xrefs_to(self, cursor) -> Iterator[AsmCursor]:
         raise NotImplementedError()
 
     def add_env_fixtures(self):

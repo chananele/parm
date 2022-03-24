@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from parm import parsers
-from parm.api.parsing.arm import *
+from parm.api.parsing.arm_asm import *
 from parm.api.parsing.arm_pat import *
 
 

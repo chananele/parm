@@ -1,6 +1,6 @@
 from typing import Reversible
 
-from parm.api.cursor import Cursor
+from parm.api.asm_cursor import AsmCursor
 from parm.api.common import find_first
 
 
@@ -16,13 +16,13 @@ class Func:
         return find_first(pattern, cursors=reversed(self.cursors))
 
     @property
-    def cursors(self) -> Reversible[Cursor]:
+    def cursors(self) -> Reversible[AsmCursor]:
         raise NotImplementedError()
 
     @property
-    def start(self) -> Cursor:
+    def start(self) -> AsmCursor:
         raise NotImplementedError()
 
     @property
-    def end(self) -> Cursor:
+    def end(self) -> AsmCursor:
         raise NotImplementedError()

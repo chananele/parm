@@ -1,5 +1,5 @@
 from parm import parsers
-from parm.api.parsing import arm, arm_pat
+from parm.api.parsing import arm_asm, arm_pat
 
 
 def load_arm_code_trees(parser):
@@ -21,7 +21,7 @@ def load_arm_code_trees(parser):
 def test_arm_code():
     parser = parsers.create_arm_parser()
     trees = load_arm_code_trees(parser)
-    transformer = arm.ArmTransformer()
+    transformer = arm_asm.ArmTransformer()
     for tree in trees:
         result = transformer.transform(tree)
         print(repr(result))

@@ -113,33 +113,33 @@ line_pat: command_pat -> lone_command
 
 block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
 
-%import .arm.NUM
-%import .arm.SHIFT_OP
-%import .arm.SHIFT_VAL
-%import .arm._POST_OPCODE
+%import .arm_asm.NUM
+%import .arm_asm.SHIFT_OP
+%import .arm_asm.SHIFT_VAL
+%import .arm_asm._POST_OPCODE
 
-%import .arm.S_LO
-%import .arm.S_HI
-%import .arm.CONDITION_LO
-%import .arm.CONDITION_HI
+%import .arm_asm.S_LO
+%import .arm_asm.S_HI
+%import .arm_asm.CONDITION_LO
+%import .arm_asm.CONDITION_HI
 
-%import .arm.MOV_LO
-%import .arm.MOV_HI
-%import .arm.OPCODE_MOV
+%import .arm_asm.MOV_LO
+%import .arm_asm.MOV_HI
+%import .arm_asm.OPCODE_MOV
 
-%import .arm.ARITHMETIC_LO
-%import .arm.ARITHMETIC_HI
-%import .arm.OPCODE_ARITHMETIC
+%import .arm_asm.ARITHMETIC_LO
+%import .arm_asm.ARITHMETIC_HI
+%import .arm_asm.OPCODE_ARITHMETIC
 
-%import .arm.BRANCH_REL_LO
-%import .arm.BRANCH_REL_HI
-%import .arm.OPCODE_BRANCH_REL
+%import .arm_asm.BRANCH_REL_LO
+%import .arm_asm.BRANCH_REL_HI
+%import .arm_asm.OPCODE_BRANCH_REL
 
-%import .arm.BRANCH_IND_LO
-%import .arm.BRANCH_IND_HI
-%import .arm.OPCODE_BRANCH_IND
+%import .arm_asm.BRANCH_IND_LO
+%import .arm_asm.BRANCH_IND_HI
+%import .arm_asm.OPCODE_BRANCH_IND
 
-%import .arm.reg
+%import .arm_asm.reg
 
 %import common.WS_INLINE -> _WS
 %import common.WS -> _AWS

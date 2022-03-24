@@ -2,7 +2,7 @@ from parm.api.type_hints import ReversibleIterable
 
 from parm.api.env import Env
 from parm.api.match_result import MatchResult
-from parm.api.cursor import Cursor
+from parm.api.asm_cursor import AsmCursor
 from parm.api.common import find_all, find_first, find_single, default_match_result
 
 
@@ -33,15 +33,15 @@ class Program:
     def find_last(self, pattern, match_result):
         return find_first(pattern, cursors=reversed(self.cursors), match_result=match_result)
 
-    def create_cursor(self, address) -> Cursor:
+    def create_cursor(self, address) -> AsmCursor:
         raise NotImplementedError()
 
     def create_pattern(self, pattern):
         raise NotImplementedError()
 
-    def find_symbol(self, symbol_name) -> Cursor:
+    def find_symbol(self, symbol_name) -> AsmCursor:
         raise NotImplementedError()
 
     @property
-    def cursors(self) -> ReversibleIterable[Cursor]:
+    def cursors(self) -> ReversibleIterable[AsmCursor]:
         raise NotImplementedError()

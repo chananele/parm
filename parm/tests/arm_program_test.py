@@ -1,7 +1,7 @@
 from unittest import TestCase
 import pytest
 
-from parm.api.exceptions import TooManyMatches, CaptureCollision, ExpectFailure
+from parm.api.exceptions import TooManyMatches, CaptureCollision
 from parm.api.match_result import MatchResult
 from parm.programs import snippet
 

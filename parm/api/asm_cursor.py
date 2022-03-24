@@ -1,10 +1,10 @@
 from parm.api.env import Env
 from parm.api.match_result import MatchResult
 from parm.api.exceptions import NoMoreInstructions
-from parm.api.parsing.arm import Instruction
+from parm.api.parsing.arm_asm import Instruction
 
 
-class Cursor:
+class AsmCursor:
     def __init__(self, env):
         self.env = env  # type: Env
 
@@ -22,19 +22,19 @@ class Cursor:
     def next(self):
         """
 
-        :rtype: Cursor
+        :rtype: AsmCursor
         """
         raise NotImplementedError()
 
     def prev(self):
         """
 
-        :rtype: Cursor
+        :rtype: AsmCursor
         """
         raise NotImplementedError()
 
 
-class TerminalCursor(Cursor):
+class TerminalAsmCursor(AsmCursor):
     @property
     def address(self):
         raise NotImplementedError()

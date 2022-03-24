@@ -2,7 +2,7 @@ from typing import Iterable
 
 from parm.api.common import default_match_result
 from parm.api.env import Env
-from parm.api.cursor import Cursor
+from parm.api.asm_cursor import AsmCursor
 from parm.api.exceptions import NoMatches
 from parm.api.match_result import MatchResult
 
@@ -23,7 +23,7 @@ class LinePattern:
     def code(self):
         raise NotImplementedError()
 
-    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
         raise NotImplementedError()
 
 
@@ -33,7 +33,7 @@ class CodeLinePatternBase(LinePattern):
         raise NotImplementedError()
 
     @default_match_result
-    def match(self, cursors: Iterable[Cursor], env: Env, match_result: MatchResult) -> Iterable[Cursor]:
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
         next_cursors = []
         for c in cursors:
 
@@ -55,7 +55,7 @@ class BlockPattern:
         raise NotImplementedError()
 
     @default_match_result
-    def match(self, cursor: Cursor, env: Env, match_result: MatchResult) -> Iterable[Cursor]:
+    def match(self, cursor: AsmCursor, env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
         cursors = [cursor]
         for line in self.lines:
             if not cursors:
