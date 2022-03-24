@@ -75,7 +75,7 @@ class OpcodePat:
             return False
         return self.name == other.name and self.capture == other.capture
 
-    def match(self, opcode, _e: Env, match_result: MatchResult):
+    def match(self, opcode, _e: Env, match_result: MatchResult, **_kwargs):
         if not isinstance(opcode, str):
             raise PatternTypeMismatch(self.name, opcode)
         if not fnmatch(opcode, self.name):
@@ -146,8 +146,8 @@ class ContainerBase:
 
 class CommandPat(ContainerBase):
     @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
-        return self.value.match(cursors, env, match_result)
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
+        return self.value.match(cursors, env, match_result, **kwargs)
 
 
 class MemOffsetPat(ContainerBase):
@@ -264,7 +264,7 @@ class OperandsPat:
         return self.ops == other.ops
 
     @default_match_result
-    def match(self, operands: list, env: Env, match_result: MatchResult):
+    def match(self, operands: list, env: Env, match_result: MatchResult, **_kwargs):
         _consume_list(self.ops, operands, env, match_result, _expect_done)
 
 
@@ -283,6 +283,7 @@ class RegPat(ContainerBase):
 
 
 class Reg(ContainerBase):
+    # noinspection PyUnusedLocal
     @_single_consumer
     @default_match_result
     def consume(self, op, _: Env, match_result: MatchResult):
@@ -320,7 +321,7 @@ class WildcardBase:
         return True
 
     @default_match_result
-    def match(self, value, _e: Env, match_result: MatchResult):
+    def match(self, value, _e: Env, match_result: MatchResult, **_kwargs):
         match_result[self.capture] = value
 
 
@@ -417,9 +418,9 @@ class AddressPat(ContainerBase):
         super().__init__(value)
 
     @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
         for cursor in cursors:
-            self.value.match(cursor.address, env, match_result)
+            self.value.match(cursor.address, env, match_result, **kwargs)
         return cursors
 
     @_single_consumer
@@ -437,13 +438,13 @@ class Address:
     def __str__(self):
         return f'0x{self.address:X}'
 
-    def match(self, address, _e: Env, _m: MatchResult):
+    def match(self, address, _e: Env, _m: MatchResult, **_kwargs):
         if address != self.address:
             raise PatternValueMismatch(self.address, address)
 
 
 class Label(ContainerBase):
-    def match(self, address, _e: Env, match_result: MatchResult):
+    def match(self, address, _e: Env, match_result: MatchResult, **_kwargs):
         match_result[self.value] = address
 
 
@@ -493,12 +494,12 @@ class InstructionPat:
         return self.opcode_pat == other.opcode_pat and self.operand_pats == other.operand_pats
 
     @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
         next_cursors = []
         for c in cursors:
             inst = c.instruction
-            self.opcode_pat.match(inst.opcode, env, match_result)
-            self.operand_pats.match(inst.operands, env, match_result)
+            self.opcode_pat.match(inst.opcode, env, match_result, **kwargs)
+            self.operand_pats.match(inst.operands, env, match_result, **kwargs)
             next_cursors.append(c.next())
         return next_cursors
 
@@ -566,6 +567,7 @@ class PythonCodeLines(PythonCodeBase):
         return f'%%\n{self.unquote()}\n%%'
 
 
+# noinspection PyMethodMayBeStatic
 class ArmPatternTransformer(Transformer):
     def opcode_wildcard(self, parts):
         (capture,) = parts

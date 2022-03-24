@@ -3,13 +3,26 @@ from typing import Iterable
 from parm.api.asm_cursor import AsmCursor
 from parm.api.common import find_single
 
-from parm.extensions.extension_base import ExecutionExtensionBase, injected, register_extension, magic_getter
+from parm.extensions.extension_base import ExecutionExtensionBase
+from parm.extensions.extension_base import injected_func, register_extension, magic_getter, magic_setter
 
 
 @register_extension
 class DefaultExtension(ExecutionExtensionBase):
 
-    @injected
+    @magic_getter('match_result')
+    def get_match_result(self):
+        return self.match_result
+
+    @magic_getter('cursor')
+    def get_cursor(self):
+        return self.cursor
+
+    @magic_setter('cursor')
+    def set_cursor(self, cursor):
+        self.cursor = cursor
+
+    @injected_func
     def skip_instructions(self, n):
         c = self.cursor
         for _ in range(n):
@@ -24,6 +37,13 @@ class DefaultExtension(ExecutionExtensionBase):
     def prev_instruction(self):
         return self.cursor.prev()
 
-    @injected
+    @injected_func
     def find_single(self, cursors: Iterable[AsmCursor], pattern):
         return find_single(pattern, cursors, self.match_result)
+
+    @injected_func
+    def match_all(self, cursors: Iterable[AsmCursor], pattern, name=None, **kwargs):
+        ms = self.match_result.new_multi_scope(name)
+        for c in cursors:
+            mr = ms.new_scope()
+            c.match(pattern, mr, **kwargs)

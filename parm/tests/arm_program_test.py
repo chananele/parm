@@ -101,3 +101,18 @@ class ArmPatternTest(TestCase):
         """)
         c.match(pattern, match_result=mr)
         assert mr['target'].address == 0x6000
+
+    def test_object_injection(self):
+        self.program.add_code_block("""
+            mov   r0, r1
+            movne r0, r2
+            bl    0x10000
+            ldr   r3, [r0]
+            """)
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+        !cursor = find_single(candidates, ${ MOVNE R0, R2 }).next()
+        BL @:target
+        """)
+        self.program.match(pattern, mr, candidates=self.program.cursors)
+        assert mr['target'].address == 0x10000

@@ -86,18 +86,43 @@ class ExtensionBase:
         self.extension_registry.load_extension(ext_type)
 
 
-def injected(fn):
+def injected_func(fn):
+    if isinstance(fn, str):
+        def decorator(func):
+            func.injected_name = fn
+            func.injected = True
+            func.magic_getter = True
+            return func
+        return decorator
+
     fn.injected = True
     return fn
 
 
 def magic_getter(fn):
+    if isinstance(fn, str):
+        def decorator(func):
+            func.getter_name = fn
+            func.injected = True
+            func.magic_getter = True
+            return func
+        return decorator
+
+    assert callable(fn)
     fn.injected = True
     fn.magic_getter = True
     return fn
 
 
 def magic_setter(fn):
+    if isinstance(fn, str):
+        def decorator(func):
+            func.setter_name = fn
+            func.injected = True
+            func.magic_setter = True
+            return func
+        return decorator
+
     fn.injected = True
     fn.magic_setter = True
     return fn
@@ -123,10 +148,13 @@ class ExecutionExtensionBase(ExtensionBase):
         for name, method in self.get_methods():
             if getattr(method, 'injected', False):
                 if getattr(method, 'magic_getter', False):
+                    name = getattr(method, 'getter_name', name)
                     self.injection_context.inject_magic_getter(name, method)
                 elif getattr(method, 'magic_setter', False):
+                    name = getattr(method, 'setter_name', name)
                     self.injection_context.inject_magic_setter(name, method)
                 else:
+                    name = getattr(method, 'injected_name', name)
                     self.injection_context.inject_global(name, method)
 
     @property
