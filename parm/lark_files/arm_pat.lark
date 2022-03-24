@@ -160,7 +160,7 @@ line_pat: command_pat -> lone_command
 
 block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
 
-%import .arm.UNSIGNED_NUM
+%import .arm_asm.UNSIGNED_NUM
 %import .arm_asm.NUM
 %import .arm_asm.SHIFT_OP
 %import .arm_asm.SHIFT_VAL
@@ -187,24 +187,24 @@ block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
 %import .arm_asm.BRANCH_IND_HI
 %import .arm_asm.OPCODE_BRANCH_IND
 
-%import .arm.BITWISE_LO
-%import .arm.BITWISE_HI
-%import .arm.OPCODE_BITWISE
+%import .arm_asm.BITWISE_LO
+%import .arm_asm.BITWISE_HI
+%import .arm_asm.OPCODE_BITWISE
 
-%import .arm.COMPARE_LO
-%import .arm.COMPARE_HI
-%import .arm.OPCODE_COMPARE
+%import .arm_asm.COMPARE_LO
+%import .arm_asm.COMPARE_HI
+%import .arm_asm.OPCODE_COMPARE
 
-%import .arm.OPCODE_MULTIPLY
+%import .arm_asm.OPCODE_MULTIPLY
 
-%import .arm.SHIFT_OP_LO
-%import .arm.SHIFT_OP_HI
-%import .arm.OPCODE_SHIFT
-%import .arm.SHIFT_UNARY_OP_LO
-%import .arm.SHIFT_UNARY_OP_HI
-%import .arm.OPCODE_SHIFT_UNARY
+%import .arm_asm.SHIFT_OP_LO
+%import .arm_asm.SHIFT_OP_HI
+%import .arm_asm.OPCODE_SHIFT
+%import .arm_asm.SHIFT_UNARY_OP_LO
+%import .arm_asm.SHIFT_UNARY_OP_HI
+%import .arm_asm.OPCODE_SHIFT_UNARY
 
-%import .arm.reg
+%import .arm_asm.reg
 
 %import common.WS_INLINE -> _WS
 %import common.WS -> _AWS
