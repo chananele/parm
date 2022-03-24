@@ -23,7 +23,11 @@ class Env(InjectionContext):
     @classmethod
     def create_default_env(cls):
         env = cls(EmbeddedLocalNS())
+        env._add_default_injections()
         return env
+
+    def _add_default_injections(self):
+        self.add_global('expect', expect)
 
     def clone(self):
         return Env(self._ns.clone())
@@ -46,7 +50,7 @@ class Env(InjectionContext):
     def add_local(self, name, value):
         self._ns.add_local(name, value)
 
-    def add_vars(self, **kwargs):
+    def add_locals(self, **kwargs):
         for k, v in kwargs.items():
             self.add_local(k, v)
 
@@ -57,5 +61,12 @@ class Env(InjectionContext):
         for k, v in kwargs.items():
             self.add_global(k, v)
 
-    def run_code(self, code, ns=None):
+    def eval(self, code, ns=None):
         return self._ns.evaluate(code, ns)
+
+    def exec(self, code, ns=None):
+        try:
+            return self._ns.execute(code, ns)
+        except IndentationError:
+            print(f'{code!r}')
+            raise

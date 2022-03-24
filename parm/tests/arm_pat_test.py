@@ -37,3 +37,33 @@ class ArmPatternTest(TestCase):
         ])
         pat = self._pt('test: bl @:test')
         assert pat == expected
+
+    def test_nested_patterns(self):
+        nested = BlockPat([CommandPat(InstructionPat(OpcodePat('MOV'), OperandsPat([
+            RegPat(Reg('R1')), ShiftedRegPat(RegPat(Reg('R2')))
+        ])))])
+        expected = BlockPat([CommandPat(PythonCodeLine(
+            ['match_single(xrefs_to, ', nested, ')']
+        ))])
+
+        pat = self._pt("""
+        !match_single(xrefs_to, ${ MOV R1, R2 })
+        """)
+        assert pat == expected
+
+    def test_not_nested_patterns(self):
+        self._pt("""
+        !print('hello')  # ${ bad }
+        """)
+        self._pt("""
+        !print('''${ bad }''')
+        """)
+        self._pt('''
+        !print("""${ bad }""")
+        ''')
+        self._pt("""
+        !print('${ bad }')
+        """)
+        self._pt('''
+        !print("${ bad }")
+        ''')

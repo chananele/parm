@@ -2,7 +2,7 @@ from parm.api.type_hints import ReversibleIterable
 
 from parm.api.env import Env
 from parm.api.match_result import MatchResult
-from parm.api.asm_cursor import AsmCursor
+from parm.api.asm_cursor import AsmCursor, NullCursor
 from parm.api.common import find_all, find_first, find_single, default_match_result
 
 
@@ -35,6 +35,12 @@ class Program:
 
     def create_cursor(self, address) -> AsmCursor:
         raise NotImplementedError()
+
+    def create_null_cursor(self) -> AsmCursor:
+        return NullCursor(self.env)
+
+    def match(self, pattern, match_result, **kwargs):
+        self.create_null_cursor().match(pattern, match_result, **kwargs)
 
     def create_pattern(self, pattern):
         raise NotImplementedError()

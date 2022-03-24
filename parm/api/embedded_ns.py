@@ -104,8 +104,8 @@ class EmbeddedLocalNS(Mapping):
 
         return ns, self
 
-    def execute(self, code):
-        _globals, _locals = self._prepare_embedded_context()
+    def execute(self, code, ns=None):
+        _globals, _locals = self._prepare_embedded_context(ns)
         exec(code, _globals, _locals)
 
     def evaluate(self, code, ns=None):

@@ -287,18 +287,19 @@ class ArmTransformer(Transformer):
         assert isinstance(opcode, Token)
         return Instruction(opcode.value, operands)
 
+    def flexible_operand(self, parts):
+        (op, ) = parts
+        return op
+
     def arithmetic_operands(self, operands):
         op_cnt = len(operands)
-        assert op_cnt in (2, 3)
-        if op_cnt == 2:
-            rd, rm_shift = operands
-            assert isinstance(rd, Reg)
-            return [rd, rd, rm_shift]
-        else:
-            rd, rn, rm_shift = operands
-            assert isinstance(rd, Reg)
-            assert isinstance(rn, Reg)
-            return [rd, rn, rm_shift]
+        assert op_cnt == 3
+        rd, rn, rm_shift = operands
+        assert isinstance(rd, Reg)
+        if rn is None:
+            rn = rd
+        assert isinstance(rn, Reg)
+        return [rd, rn, rm_shift]
 
     def mem_single_operand(self, operands):
         return operands
