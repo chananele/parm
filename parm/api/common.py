@@ -14,7 +14,7 @@ except ImportError:
 from parm.api.exceptions import PatternMismatchException, TooManyMatches, NoMatches
 from parm.api.match_result import MatchResult
 from parm.api.env import Env
-from parm.api.asm_cursor import AsmCursor
+from parm.api.cursor import Cursor
 
 
 def default_initialize(arg_name, initializer):
@@ -49,7 +49,7 @@ default_env = default_initialize('env', Env.create_default_env)
 
 
 @default_match_result
-def find_all(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
+def find_all(pattern, cursors: Iterable[Cursor], match_result: MatchResult, **kwargs) -> Iterable[Cursor]:
     ms = match_result.new_multi_scope()
     for c in cursors:
         scope = ms.new_scope()
@@ -63,7 +63,7 @@ def find_all(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult, *
 
 
 @default_match_result
-def find_first(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult, **kwargs) -> AsmCursor:
+def find_first(pattern, cursors: Iterable[Cursor], match_result: MatchResult, **kwargs) -> Cursor:
     for c in cursors:
         try:
             with match_result.transact():
@@ -75,7 +75,7 @@ def find_first(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult,
 
 
 @default_match_result
-def find_single(pattern, cursors: Iterable[AsmCursor], match_result: MatchResult, **kwargs) -> AsmCursor:
+def find_single(pattern, cursors: Iterable[Cursor], match_result: MatchResult, **kwargs) -> Cursor:
     ms = match_result.new_temp_multi_scope()
     match = None
     for c in cursors:

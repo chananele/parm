@@ -15,8 +15,7 @@ class ArmPatternTest(TestCase):
         self.program.add_code_block('0x2000: blxeq r0')
         pattern = self.program.create_pattern('test: blx*:opcode r0')
         mr = MatchResult()
-        with mr.transact():
-            result = list(self.program.find_all(pattern, match_result=mr))
+        result = list(self.program.find_all(pattern, match_result=mr))
 
         ms = mr.subs[0]
         assert ms[0]['opcode'] == 'blxeq'
@@ -114,5 +113,5 @@ class ArmPatternTest(TestCase):
         !cursor = find_single(candidates, ${ MOVNE R0, R2 }).next()
         BL @:target
         """)
-        self.program.match(pattern, mr, candidates=self.program.cursors)
+        self.program.match(pattern, mr, candidates=self.program.asm_cursors)
         assert mr['target'].address == 0x10000

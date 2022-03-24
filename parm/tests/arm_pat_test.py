@@ -67,3 +67,6 @@ class ArmPatternTest(TestCase):
         self._pt('''
         !print("${ bad }")
         ''')
+
+    def test_db(self):
+        self._pt('.db 0x1000')

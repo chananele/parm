@@ -4,7 +4,7 @@ from parm.api.exceptions import NoMoreInstructions
 from parm.api.parsing.arm_asm import Instruction
 
 
-class AsmCursor:
+class Cursor:
     def __init__(self, env):
         self.env = env  # type: Env
 
@@ -16,25 +16,45 @@ class AsmCursor:
     def address(self):
         raise NotImplementedError()
 
-    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> MatchResult:
+    def read_bytes(self, count) -> bytes:
+        raise NotImplementedError()
+
+    def get_cursor_by_offset(self, offset):
+        """
+
+        :param int offset:
+        :return:
+        :rtype: Cursor
+        """
+        raise NotImplementedError()
+
+    def match(self, pattern, match_result: MatchResult = None, **kwargs):
+        """
+
+        :param pattern:
+        :param match_result:
+        :param kwargs:
+        :return:
+        :rtype: Cursor
+        """
         raise NotImplementedError()
 
     def next(self):
         """
 
-        :rtype: AsmCursor
+        :rtype: Cursor
         """
         raise NotImplementedError()
 
     def prev(self):
         """
 
-        :rtype: AsmCursor
+        :rtype: Cursor
         """
         raise NotImplementedError()
 
 
-class TerminalAsmCursor(AsmCursor):
+class TerminalCursor(Cursor):
     @property
     def address(self):
         raise NotImplementedError()
@@ -43,7 +63,7 @@ class TerminalAsmCursor(AsmCursor):
     def instruction(self):
         raise NoMoreInstructions()
 
-    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> MatchResult:
+    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> Cursor:
         raise NoMoreInstructions()
 
     def next(self):
@@ -53,7 +73,7 @@ class TerminalAsmCursor(AsmCursor):
         raise NotImplementedError()
 
 
-class NullCursor(AsmCursor):
+class NullCursor(Cursor):
     def prev(self):
         raise NotImplementedError()
 
@@ -68,5 +88,5 @@ class NullCursor(AsmCursor):
     def instruction(self):
         raise NotImplementedError()
 
-    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> MatchResult:
+    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> Cursor:
         return pattern.match(self, self.env, match_result, **kwargs)

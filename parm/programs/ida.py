@@ -1,6 +1,6 @@
 from parm.api.env import Env
 from parm.api.program import Program
-from parm.api.asm_cursor import AsmCursor
+from parm.api.cursor import Cursor
 from parm.api.type_hints import ReversibleIterable
 
 from parm.extensions.extension_base import magic_getter
@@ -32,17 +32,17 @@ class IDAProgram(Program):
         super(IDAProgram, self).register_default_extensions()
         self.register_extension_type(IDAAnalysisExt)
 
-    def create_cursor(self, address) -> AsmCursor:
+    def create_cursor(self, address) -> Cursor:
         raise NotImplementedError()
 
     def create_pattern(self, pattern):
         raise NotImplementedError()
 
-    def find_symbol(self, symbol_name) -> AsmCursor:
+    def find_symbol(self, symbol_name) -> Cursor:
         raise NotImplementedError()
 
     @property
-    def cursors(self) -> ReversibleIterable[AsmCursor]:
+    def asm_cursors(self) -> ReversibleIterable[Cursor]:
         raise NotImplementedError()
 
 

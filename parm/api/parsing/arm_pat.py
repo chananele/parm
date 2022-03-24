@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Literal
 
 from fnmatch import fnmatch
 from functools import wraps
@@ -13,7 +13,7 @@ from parm.api.exceptions import PatternMismatchException, OperandsExhausted
 from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMatches, NotAllOperandsMatched
 from parm.api.match_result import MatchResult
 from parm.api.env import Env
-from parm.api.asm_cursor import AsmCursor
+from parm.api.cursor import Cursor
 from parm.api.pattern import CodeLinePatternBase, BlockPattern
 
 
@@ -146,8 +146,8 @@ class ContainerBase:
 
 class CommandPat(ContainerBase):
     @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
-        return self.value.match(cursors, env, match_result, **kwargs)
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        return self.value.match(cursor, env, match_result, **kwargs)
 
 
 class MemOffsetPat(ContainerBase):
@@ -263,7 +263,6 @@ class OperandsPat:
             return False
         return self.ops == other.ops
 
-    @default_match_result
     def match(self, operands: list, env: Env, match_result: MatchResult, **_kwargs):
         _consume_list(self.ops, operands, env, match_result, _expect_done)
 
@@ -320,7 +319,6 @@ class WildcardBase:
             return False
         return True
 
-    @default_match_result
     def match(self, value, _e: Env, match_result: MatchResult, **_kwargs):
         match_result[self.capture] = value
 
@@ -328,7 +326,6 @@ class WildcardBase:
 class WildcardMulti(WildcardBase):
     symbol = '*'
 
-    @default_match_result
     def consume(self, operands, _e: Env, match_result: MatchResult, complete):
         for i in range(len(operands) + 1):
             with match_result.transact():
@@ -340,7 +337,6 @@ class WildcardMulti(WildcardBase):
 class WildcardOptional(WildcardBase):
     symbol = '?'
 
-    @default_match_result
     def consume(self, operands: list, _e: Env, match_result: MatchResult, complete):
         try:
             op0 = operands[0]
@@ -417,11 +413,9 @@ class AddressPat(ContainerBase):
     def __init__(self, value):
         super().__init__(value)
 
-    @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
-        for cursor in cursors:
-            self.value.match(cursor.address, env, match_result, **kwargs)
-        return cursors
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        self.value.match(cursor.address, env, match_result, **kwargs)
+        return cursor
 
     @_single_consumer
     def consume(self, op, env: Env, match_result: MatchResult):
@@ -496,14 +490,11 @@ class InstructionPat:
         return self.opcode_pat == other.opcode_pat and self.operand_pats == other.operand_pats
 
     @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
-        next_cursors = []
-        for c in cursors:
-            inst = c.instruction
-            self.opcode_pat.match(inst.opcode, env, match_result, **kwargs)
-            self.operand_pats.match(inst.operands, env, match_result, **kwargs)
-            next_cursors.append(c.next())
-        return next_cursors
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        inst = cursor.instruction
+        self.opcode_pat.match(inst.opcode, env, match_result, **kwargs)
+        self.operand_pats.match(inst.operands, env, match_result, **kwargs)
+        return cursor.next()
 
 
 class PythonCodeBase(CodeLinePatternBase):
@@ -578,6 +569,34 @@ class PythonCodeLine(PythonCodeBase):
 class PythonCodeLines(PythonCodeBase):
     def __str__(self):
         return f'%%\n{self.unquote()}\n%%'
+
+
+class SizedData(ContainerBase):
+    @property
+    def size(self):
+        raise NotImplementedError()
+
+    @property
+    def endian(self) -> Literal["little", "big"]:
+        return 'little'
+
+    def match(self, cursor: Cursor, _env: Env, match_result: MatchResult, **_kwargs) -> Cursor:
+        v = self.value
+        data = int.from_bytes(cursor.read_bytes(self.size), self.endian)
+        if isinstance(v, int):
+            if data != v:
+                raise PatternValueMismatch(data, v)
+        else:
+            assert isinstance(v, WildcardSingle)
+            match_result[v.capture] = data
+
+        return cursor.get_cursor_by_offset(self.size)
+
+
+class DataByte(SizedData):
+    @property
+    def size(self):
+        return 1
 
 
 # noinspection PyMethodMayBeStatic

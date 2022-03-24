@@ -2,7 +2,7 @@ from typing import Iterable
 
 from parm.api.common import default_match_result
 from parm.api.env import Env
-from parm.api.asm_cursor import AsmCursor
+from parm.api.cursor import Cursor
 from parm.api.exceptions import NoMatches
 from parm.api.match_result import MatchResult
 
@@ -14,7 +14,7 @@ class LinePattern:
     def code(self):
         raise NotImplementedError()
 
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
         raise NotImplementedError()
 
 
@@ -28,22 +28,15 @@ class CodeLinePatternBase(LinePattern):
         raise {}
 
     @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
-        next_cursors = []
-        for c in cursors:
-
-            local_env = env.clone()
-            local_env.add_globals(**kwargs)
-            local_env.add_locals(**self.vars)
-            execution_context = ExecutionContext(c, match_result)
-            registry = local_env.create_extension_registry(execution_context, local_env)
-            registry.load_extensions()
-            local_env.exec(self.code)
-
-            next_cursor = execution_context.cursor
-            next_cursors.append(next_cursor)
-
-        return next_cursors
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        local_env = env.clone()
+        local_env.add_globals(**kwargs)
+        local_env.add_locals(**self.vars)
+        execution_context = ExecutionContext(cursor, match_result)
+        registry = local_env.create_extension_registry(execution_context, local_env)
+        registry.load_extensions()
+        local_env.exec(self.code)
+        return execution_context.cursor
 
 
 class BlockPattern:
@@ -52,10 +45,9 @@ class BlockPattern:
         raise NotImplementedError()
 
     @default_match_result
-    def match(self, cursor: AsmCursor, env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
-        cursors = [cursor]
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
         for line in self.lines:
-            if not cursors:
+            if not cursor:
                 raise NoMatches()
-            cursors = line.match(cursors, env, match_result, **kwargs)
-        return cursors
+            cursor = line.match(cursor, env, match_result, **kwargs)
+        return cursor

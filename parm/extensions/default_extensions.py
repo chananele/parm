@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from parm.api.asm_cursor import AsmCursor
+from parm.api.cursor import Cursor
 from parm.api.common import find_single
 
 from parm.extensions.extension_base import ExecutionExtensionBase
@@ -37,11 +37,11 @@ class DefaultExtension(ExecutionExtensionBase):
         return self.cursor.prev()
 
     @injected_func
-    def find_single(self, cursors: Iterable[AsmCursor], pattern):
+    def find_single(self, cursors: Iterable[Cursor], pattern):
         return find_single(pattern, cursors, self.match_result)
 
     @injected_func
-    def match_all(self, cursors: Iterable[AsmCursor], pattern, name=None, **kwargs):
+    def match_all(self, cursors: Iterable[Cursor], pattern, name=None, **kwargs):
         ms = self.match_result.new_multi_scope(name)
         for c in cursors:
             mr = ms.new_scope()

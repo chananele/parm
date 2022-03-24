@@ -4,7 +4,7 @@ from pathlib import Path
 from capstone import CS_ARCH_ARM, CS_ARCH_X86, CS_MODE_ARM, Cs
 from elftools.elf.elffile import ELFFile
 
-from parm.api.asm_cursor import AsmCursor
+from parm.api.cursor import Cursor
 from parm.extensions.extension_base import magic_getter
 from parm.extensions.default_extensions import AnalysisExtension
 from parm.programs.snippet import ArmSnippetProgram
@@ -46,7 +46,7 @@ class CapstoneProgram(ArmSnippetProgram):
         super(CapstoneProgram, self).register_default_extensions()
         self.register_extension_type(CapstoneAnalysisExt)
 
-    def find_symbol(self, symbol_name) -> AsmCursor:
+    def find_symbol(self, symbol_name) -> Cursor:
         raise NotImplementedError()
 
     def _analyze(self, cursors):

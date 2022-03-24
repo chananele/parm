@@ -156,9 +156,24 @@ python_code_line: CODE_PIECE [_WS] ("${" block_pat "}" [_WS] CODE_PIECE [_WS])* 
 
 python_code_lines: python_code_line (_NL python_code_line)*
 
+DB: ".db"
+DW: ".dw"
+DD: ".dd"
+DQ: ".dq"
+ASCII: ".ascii"
+
+data_val_pat: NUM | wildcard_s
+
+data_pat: DB _WS data_val_pat -> db
+        | DW _WS data_val_pat -> dw
+        | DD _WS data_val_pat -> dd
+        | DQ _WS data_val_pat -> dq
+        | ASCII _WS ESCAPED_STRING -> ascii
+
 command_pat: instruction_pat [_COMMENT] -> instruction_line
            | "!" [_WS] python_code_line -> code_line
            | "%%" [_WS] _NL python_code_lines _NL [_WS] "%%" -> code_lines
+           | data_pat [_COMMENT] -> data_line
 
 line_pat: command_pat -> lone_command
         | line_address_pat [_WS] ":" [_WS] [_COMMENT] -> lone_address
@@ -216,3 +231,4 @@ block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
 %import common.WS -> _AWS
 %import common.NEWLINE -> _NL
 %import common.CNAME
+%import common.ESCAPED_STRING
