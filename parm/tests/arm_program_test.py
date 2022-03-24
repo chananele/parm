@@ -79,3 +79,25 @@ class ArmPatternTest(TestCase):
         """)
         c.match(pattern, match_result=mr)
         assert mr['target'].address == 0x8000
+
+    def test_nested_pattern(self):
+        self.program.add_code_block("""
+            0x2000: mov r0, r1
+                    mov r0, r2
+                    bl  0x6000
+                    mov r3, r0
+            """)
+        c = self.program.create_cursor(0x2000)
+
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+            mov r0, r1
+            %%
+            find_single([prev_instruction, next_instruction], ${
+                BL  @:target
+                MOV R3, R0
+            })
+            %%
+        """)
+        c.match(pattern, match_result=mr)
+        assert mr['target'].address == 0x6000

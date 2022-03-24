@@ -625,9 +625,14 @@ class ArmPatternTransformer(Transformer):
 
     def python_code_line(self, parts):
         result = []
+        end = False
         for p in parts:
+            assert not end
             if isinstance(p, Token):
                 result.append(p.value)
+                continue
+            if p is None:
+                end = True
                 continue
             assert isinstance(p, BlockPat)
             result.append(p)

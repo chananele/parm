@@ -102,7 +102,7 @@ _COMMENT: /\/\/[^\n]*/
 ONE_LINER: /[^\n]+/
 
 CODE_PIECE: /([^\n\$]|(\$[^\{]))+/
-python_code_line: CODE_PIECE [_WS] ("${" [_WS] block_pat [_WS] "}" [_WS] CODE_PIECE [_WS])*
+python_code_line: CODE_PIECE [_WS] ("${" block_pat "}" [_WS] CODE_PIECE [_WS])* ["${" block_pat "}"]
 
 python_code_lines: python_code_line (_NL python_code_line)*
 
