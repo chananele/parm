@@ -16,7 +16,7 @@ class AsmCursor:
     def address(self):
         raise NotImplementedError()
 
-    def match(self, pattern, match_result: MatchResult = None) -> MatchResult:
+    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> MatchResult:
         raise NotImplementedError()
 
     def next(self):
@@ -43,7 +43,7 @@ class TerminalAsmCursor(AsmCursor):
     def instruction(self):
         raise NoMoreInstructions()
 
-    def match(self, pattern, match_result: MatchResult = None) -> MatchResult:
+    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> MatchResult:
         raise NoMoreInstructions()
 
     def next(self):
@@ -51,3 +51,22 @@ class TerminalAsmCursor(AsmCursor):
 
     def prev(self):
         raise NotImplementedError()
+
+
+class NullCursor(AsmCursor):
+    def prev(self):
+        raise NotImplementedError()
+
+    def next(self):
+        raise NotImplementedError()
+
+    @property
+    def address(self):
+        raise NotImplementedError()
+
+    @property
+    def instruction(self):
+        raise NotImplementedError()
+
+    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> MatchResult:
+        return pattern.match(self, self.env, match_result, **kwargs)

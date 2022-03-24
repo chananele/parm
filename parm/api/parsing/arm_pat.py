@@ -2,6 +2,8 @@ from typing import Iterable
 
 from fnmatch import fnmatch
 from functools import wraps
+from collections import OrderedDict
+
 from lark import Transformer, Token
 
 from parm.api.parsing import arm_asm
@@ -73,7 +75,7 @@ class OpcodePat:
             return False
         return self.name == other.name and self.capture == other.capture
 
-    def match(self, opcode, _e: Env, match_result: MatchResult):
+    def match(self, opcode, _e: Env, match_result: MatchResult, **_kwargs):
         if not isinstance(opcode, str):
             raise PatternTypeMismatch(self.name, opcode)
         if not fnmatch(opcode, self.name):
@@ -144,8 +146,8 @@ class ContainerBase:
 
 class CommandPat(ContainerBase):
     @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
-        return self.value.match(cursors, env, match_result)
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
+        return self.value.match(cursors, env, match_result, **kwargs)
 
 
 class MemOffsetPat(ContainerBase):
@@ -163,10 +165,15 @@ class ShiftedRegPat:
         return f'{self.reg_pat}, {self.shift_pat}'
 
     def __repr__(self):
-        ps = [str(self.reg_pat)]
+        ps = [f'{self.reg_pat!r}']
         if self.shift_pat is not None:
-            ps.append(str(self.shift_pat))
+            ps.append(f'{self.shift_pat!r}')
         return f'ShiftedRegPat({", ".join(ps)})'
+
+    def __eq__(self, other):
+        if isinstance(other, ShiftedRegPat):
+            return self.reg_pat == other.reg_pat and self.shift_pat == other.shift_pat
+        return False
 
     @_single_consumer
     def consume(self, op, env: Env, match_result: MatchResult):
@@ -257,7 +264,7 @@ class OperandsPat:
         return self.ops == other.ops
 
     @default_match_result
-    def match(self, operands: list, env: Env, match_result: MatchResult):
+    def match(self, operands: list, env: Env, match_result: MatchResult, **_kwargs):
         _consume_list(self.ops, operands, env, match_result, _expect_done)
 
 
@@ -276,6 +283,7 @@ class RegPat(ContainerBase):
 
 
 class Reg(ContainerBase):
+    # noinspection PyUnusedLocal
     @_single_consumer
     @default_match_result
     def consume(self, op, _: Env, match_result: MatchResult):
@@ -313,7 +321,7 @@ class WildcardBase:
         return True
 
     @default_match_result
-    def match(self, value, _e: Env, match_result: MatchResult):
+    def match(self, value, _e: Env, match_result: MatchResult, **_kwargs):
         match_result[self.capture] = value
 
 
@@ -381,7 +389,7 @@ class ImmediatePat:
         return self.value == other.value
 
 
-class CodeLine(CodeLinePatternBase):
+class PureCodeLine(CodeLinePatternBase):
     @property
     def prefix(self):
         return '!'
@@ -410,9 +418,9 @@ class AddressPat(ContainerBase):
         super().__init__(value)
 
     @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
         for cursor in cursors:
-            self.value.match(cursor.address, env, match_result)
+            self.value.match(cursor.address, env, match_result, **kwargs)
         return cursors
 
     @_single_consumer
@@ -430,7 +438,7 @@ class Address:
     def __str__(self):
         return f'0x{self.address:X}'
 
-    def match(self, address, _e: Env, _m: MatchResult):
+    def match(self, address, _e: Env, _m: MatchResult, **_kwargs):
         if not isinstance(address, arm_asm.Address):
             return False
         if address.address != self.address:
@@ -438,7 +446,7 @@ class Address:
 
 
 class Label(ContainerBase):
-    def match(self, address, _e: Env, match_result: MatchResult):
+    def match(self, address, _e: Env, match_result: MatchResult, **_kwargs):
         match_result[self.value] = address
 
 
@@ -488,16 +496,91 @@ class InstructionPat:
         return self.opcode_pat == other.opcode_pat and self.operand_pats == other.operand_pats
 
     @default_match_result
-    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult) -> Iterable[AsmCursor]:
+    def match(self, cursors: Iterable[AsmCursor], env: Env, match_result: MatchResult, **kwargs) -> Iterable[AsmCursor]:
         next_cursors = []
         for c in cursors:
             inst = c.instruction
-            self.opcode_pat.match(inst.opcode, env, match_result)
-            self.operand_pats.match(inst.operands, env, match_result)
+            self.opcode_pat.match(inst.opcode, env, match_result, **kwargs)
+            self.operand_pats.match(inst.operands, env, match_result, **kwargs)
             next_cursors.append(c.next())
         return next_cursors
 
 
+class PythonCodeBase(CodeLinePatternBase):
+    var_ix = 0
+
+    def __init__(self, parts):
+        self.parts = parts
+        self._code, self._vars = self._gen_code()
+
+    @property
+    def code(self):
+        return self._code
+
+    @property
+    def vars(self):
+        return self._vars
+
+    @classmethod
+    def _gen_var(cls):
+        ix = cls.var_ix + 1
+        cls.var_ix = ix
+        return f'var_{ix}'
+
+    @staticmethod
+    def _fix_indentation(code):
+        lines = code.split('\n')
+        stripped_lines = [line.lstrip() for line in lines]
+        prefixes = [line[:-len(stripped)] for line, stripped in zip(lines, stripped_lines)]
+        p = prefixes[0]
+        assert all(p == px for px in prefixes[1:])
+        return '\n'.join(stripped_lines)
+
+    def _gen_code(self):
+        pieces = []
+        ns = OrderedDict()
+        for p in self.parts:
+            if isinstance(p, str):
+                pieces.append(p)
+                continue
+            assert isinstance(p, BlockPat), f'Parts: {self.parts}'
+            var = self._gen_var()
+            ns[var] = p
+            pieces.append(var)
+        code = ''.join(pieces)
+        code = self._fix_indentation(code)
+        return code, ns
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.parts!r})'
+
+    def unquote(self):
+        strs = []
+        for p in self.parts:
+            if isinstance(p, str):
+                strs.append(p)
+                continue
+            assert isinstance(p, BlockPat)
+            strs.append(f'${{{p!s}}}')
+        return ''.join(strs)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self.parts == other.parts
+
+
+class PythonCodeLine(PythonCodeBase):
+    def __str__(self):
+        return f'!{self.unquote()}'
+
+
+class PythonCodeLines(PythonCodeBase):
+    def __str__(self):
+        return f'%%\n{self.unquote()}\n%%'
+
+
+# noinspection PyMethodMayBeStatic
 class ArmPatternTransformer(Transformer):
     def opcode_wildcard(self, parts):
         (capture,) = parts
@@ -565,9 +648,35 @@ class ArmPatternTransformer(Transformer):
         (result,) = parts
         return result
 
+    def python_code_line(self, parts):
+        result = []
+        end = False
+        for p in parts:
+            assert not end
+            if isinstance(p, Token):
+                result.append(p.value)
+                continue
+            if p is None:
+                end = True
+                continue
+            assert isinstance(p, BlockPat)
+            result.append(p)
+        return result
+
+    def python_code_lines(self, parts):
+        flattened = []
+        for p in parts:
+            assert isinstance(p, list)
+            flattened.extend(p)
+        return flattened
+
     def code_line(self, parts):
-        (code,) = parts
-        return CommandPat(CodeLine(code))
+        (code_parts, ) = parts
+        return CommandPat(PythonCodeLine(code_parts))
+
+    def code_lines(self, parts):
+        (code_parts, ) = parts
+        return CommandPat(PythonCodeLines(code_parts))
 
     def capture_opt(self, parts):
         (cap,) = parts
@@ -645,6 +754,10 @@ class ArmPatternTransformer(Transformer):
             assert isinstance(lp, list), lp
             lines.extend(lp)
         return BlockPat(lines)
+
+    def flexible_operand_pat(self, parts):
+        (pat, ) = parts
+        return pat
 
     def _mem_multi_pat_1(self, parts):
         (value,) = parts
