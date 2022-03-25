@@ -262,4 +262,21 @@ class ArmPatternTest(TestCase):
             self.program.create_cursor(0x200C).match(good_pattern, mr)
 
     def test_goto_next(self):
-        pass
+        self.program.add_code_block("""
+        0x1000: mov r5, r0
+                blxeq r1
+                mov r0, r4
+                bleq  0x1000
+                mov r0, r5
+                bleq  0x2000
+        """)
+        pattern = self.program.create_pattern("""
+        mov @:reg, r0
+        % goto_next(${ 
+            mov r0, @:reg
+            bleq @:target 
+        })
+        """)
+        mr = MatchResult()
+        self.program.create_cursor(0x1000).match(pattern, match_result=mr)
+        assert mr['target'].address == 0x2000
