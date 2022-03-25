@@ -115,7 +115,7 @@ class ArmPatternTest(TestCase):
         % cursor = find_single(candidates, ${ MOVNE R0, R2 }).next()
         BL @:target
         """)
-        self.program.match(pattern, mr, candidates=self.program.asm_cursors)
+        self.program.match(pattern, mr, candidates=self.program.cursors)
         assert mr['target'].address == 0x10000
 
     def test_data_bytes(self):
@@ -280,3 +280,28 @@ class ArmPatternTest(TestCase):
         mr = MatchResult()
         self.program.create_cursor(0x1000).match(pattern, match_result=mr)
         assert mr['target'].address == 0x2000
+
+    def test_goto_after_next(self):
+        self.program.add_code_block("""
+        0x1000: mov   r5, r0
+                mov   r3, r0
+                blxeq r1
+                mov   r0, r4
+                bleq  0x1000
+                mov   r0, r5
+                bleq  0x2000
+                b     0x3000
+                mov   r0, r3
+                bleq  0x8000
+                adc   r4, r9
+        """)
+        mr = MatchResult()
+        self.program.find_first("""
+        mov @:reg, r0
+        % goto_after_next(${ 
+            mov r0, @:reg
+            bleq @:target 
+        })
+        adc r4, @
+        """, mr)
+        assert mr['target'].address == 0x8000

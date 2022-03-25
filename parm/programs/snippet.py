@@ -260,7 +260,7 @@ class SnippetProgram(Program):
         return self._pattern_loader.load(pattern)
 
     @property
-    def asm_cursors(self) -> ReversibleIterable[Cursor]:
+    def cursors(self) -> ReversibleIterable[Cursor]:
         return self._cursors
 
 

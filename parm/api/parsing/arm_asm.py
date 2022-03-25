@@ -315,7 +315,7 @@ class ArmTransformer(Transformer):
         rd, rn, rm_shift = operands
         assert isinstance(rd, Reg)
         if rn is None:
-            rn = rd
+            return [rd, rm_shift]
         assert isinstance(rn, Reg)
         return [rd, rn, rm_shift]
 

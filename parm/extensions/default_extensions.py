@@ -75,26 +75,47 @@ class DefaultExtension(ExecutionExtensionBase):
         while True:
             try:
                 with mr.transact():
-                    cursor.match(pattern, mr, **kwargs)
-                    return cursor
+                    matched = cursor
+                    cursor = cursor.match(pattern, mr, **kwargs)
+                    return matched, cursor
             except PatternMismatchException:
                 cursor = advance(cursor)
 
     @injected_func
     def find_next(self, pattern, **kwargs):
-        return self.search(pattern, lambda c: c.next(), **kwargs)
+        matched, cursor = self.search(pattern, lambda c: c.next(), **kwargs)
+        return matched
 
     @injected_func
     def goto_next(self, pattern, **kwargs):
         self.cursor = self.find_next(pattern, **kwargs)
 
     @injected_func
+    def find_after_next(self, pattern, **kwargs):
+        matched, cursor = self.search(pattern, lambda c: c.next(), **kwargs)
+        return cursor
+
+    @injected_func
+    def goto_after_next(self, pattern, **kwargs):
+        self.cursor = self.find_after_next(pattern, **kwargs)
+
+    @injected_func
     def find_prev(self, pattern, **kwargs):
-        return self.search(pattern, lambda c: c.prev(), **kwargs)
+        matched, cursor = self.search(pattern, lambda c: c.prev(), **kwargs)
+        return matched
 
     @injected_func
     def goto_prev(self, pattern, **kwargs):
         self.cursor = self.find_prev(pattern, **kwargs)
+
+    @injected_func
+    def find_before_prev(self, pattern, **kwargs):
+        matched, cursor = self.search(pattern, lambda c: c.prev(), **kwargs)
+        return cursor
+
+    @injected_func
+    def goto_before_prev(self, pattern, **kwargs):
+        self.cursor = self.find_before_prev(pattern, **kwargs)
 
     @injected_func
     def goto(self, location):

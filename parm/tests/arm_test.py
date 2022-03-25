@@ -71,7 +71,7 @@ class ArmTest(TestCase):
         assert self._pt('b 0x4000') == expected
 
     def test_adc(self):
-        expected = Block([Line(Instruction('adc', [Reg('r0'), Reg('r0'), ShiftedReg(Reg('r1'))]))])
+        expected = Block([Line(Instruction('adc', [Reg('r0'), ShiftedReg(Reg('r1'))]))])
         assert self._pt('adc r0, r1') == expected
 
     def test_scaled_sub(self):
