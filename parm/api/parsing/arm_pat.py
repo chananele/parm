@@ -388,7 +388,7 @@ class ImmediatePat:
 class PureCodeLine(CodeLinePatternBase):
     @property
     def prefix(self):
-        return '!'
+        return '%'
 
     def __init__(self, code):
         self._code = code
@@ -563,7 +563,7 @@ class PythonCodeBase(CodeLinePatternBase):
 
 class PythonCodeLine(PythonCodeBase):
     def __str__(self):
-        return f'!{self.unquote()}'
+        return f'%{self.unquote()}'
 
 
 class PythonCodeLines(PythonCodeBase):

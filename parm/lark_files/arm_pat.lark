@@ -173,9 +173,12 @@ data_pat: _DB _WS data_val_pats -> db
         | _ASCII _WS ESCAPED_STRING -> ascii
         | _ASCIZ _WS ESCAPED_STRING -> asciz
 
+_MULTILINE_CODE: "%%"
+_UNILINE_CODE: /%(?!%)/
+
 command_pat: instruction_pat [_COMMENT] -> instruction_line
-           | "!" [_WS] python_code_line -> code_line
-           | "%%" [_WS] _NL python_code_lines _NL [_WS] "%%" -> code_lines
+           | _UNILINE_CODE [_WS] python_code_line -> code_line
+           | _MULTILINE_CODE [_WS] _NL python_code_lines _NL [_WS] _MULTILINE_CODE -> code_lines
            | data_pat [_COMMENT] -> data_line
 
 line_pat: command_pat -> lone_command

@@ -75,7 +75,7 @@ class ArmPatternTest(TestCase):
         mr = MatchResult()
         pattern = self.program.create_pattern("""
             mov r0, @
-            !skip_instructions(2)
+            % skip_instructions(2)
             bl  @:target
         """)
         c.match(pattern, match_result=mr)
@@ -112,7 +112,7 @@ class ArmPatternTest(TestCase):
             """)
         mr = MatchResult()
         pattern = self.program.create_pattern("""
-        !cursor = find_single(candidates, ${ MOVNE R0, R2 }).next()
+        % cursor = find_single(candidates, ${ MOVNE R0, R2 }).next()
         BL @:target
         """)
         self.program.match(pattern, mr, candidates=self.program.asm_cursors)
