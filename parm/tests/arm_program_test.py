@@ -295,6 +295,17 @@ class ArmPatternTest(TestCase):
                 bleq  0x8000
                 adc   r4, r9
         """)
+
+        mr = MatchResult()
+        self.program.find_first("""
+        mov @:reg, r0
+        % goto_after_next(${ 
+            mov r0, @:reg
+            bleq @:target 
+        })
+        """, mr)
+        assert mr['target'].address == 0x2000
+
         mr = MatchResult()
         self.program.find_first("""
         mov @:reg, r0
