@@ -461,6 +461,10 @@ class BlockPat(BlockPattern):
     def anchor_index(self):
         return self._anchor_index
 
+    @anchor_index.setter
+    def anchor_index(self, value):
+        self._anchor_index = value
+
     def __repr__(self):
         if self.anchor_index == 0:
             return f'BlockPat({self.lines!r})'

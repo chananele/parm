@@ -69,6 +69,16 @@ class ArmPatternTest(TestCase):
         ''')
 
     def test_db(self):
-        expected = BlockPat([DataSeq([DataByte(0x1000)])])
-        pat = self._pt('.db 0x1000')
+        expected = BlockPat([DataSeq([DataByte(0x10)])])
+        pat = self._pt('.db 0x10')
         assert pat == expected
+
+    def test_anchor(self):
+        block = BlockPat([DataSeq([DataByte(0x10)]), DataSeq([DataWord(0x200)])])
+        pat = self._pt("""
+            .db 0x10
+          > .dw 0x200
+        """)
+        assert pat != block
+        block.anchor_index = 1
+        assert pat == block
