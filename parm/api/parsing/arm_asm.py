@@ -260,27 +260,36 @@ class MemAccessPostIndexed(MemAccess):
 
 
 class Block:
-    def __init__(self, lines):
+    def __init__(self, lines, terminal=None):
         self.lines = lines
+        self.terminal = terminal
 
     def __iter__(self):
         return iter(self.lines)
 
     def __str__(self):
-        return '\n'.join(str(line) for line in self)
+        line_strs = list(map(str, self))
+        if self.terminal is not None:
+            line_strs.append(f'{self.terminal}: ')
+        return '\n'.join(line_strs)
 
     def __repr__(self):
-        return f'Block({self.lines!r})'
+        if self.terminal is None:
+            return f'Block({self.lines!r})'
+        else:
+            return f'Block({self.lines!r}, {self.terminal!r})'
 
     def __eq__(self, other):
         if not isinstance(other, Block):
             return False
-        return self.lines == other.lines
+        return self.lines == other.lines and self.terminal == other.terminal
 
 
 class ArmTransformer(Transformer):
-    def block(self, lines):
-        return Block(lines)
+    def block(self, parts):
+        terminal = parts.pop(-1)
+        lines = parts
+        return Block(lines, terminal)
 
     def line(self, parts):
         address, instruction = parts
@@ -399,3 +408,8 @@ class ArmTransformer(Transformer):
         (num, ) = parts
         assert isinstance(num, Token)
         return Address(int(num.value, 0))
+
+    def label(self, parts):
+        (address, ) = parts
+        assert isinstance(address, Address)
+        return address

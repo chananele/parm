@@ -154,9 +154,11 @@ NUM: ["-"] UNSIGNED_NUM
 
 address: UNSIGNED_NUM
 
-line: [_WS] [address [_WS] ":" [_WS]] instruction [_WS]
+label: address [_WS] ":" [_WS]
 
-block: [_AWS] line (_NL [_AWS] line)* [_AWS]
+line: [_WS] [label] instruction [_WS]
+
+block: [_AWS] line (_NL [_AWS] line)* [_NL [_AWS] label] [_AWS]
 
 %import common.INT
 %import common.HEXDIGIT

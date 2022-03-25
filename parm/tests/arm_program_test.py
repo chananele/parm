@@ -1,8 +1,10 @@
-from unittest import TestCase
 import pytest
+from unittest import TestCase
+from struct import pack
 
-from parm.api.exceptions import TooManyMatches, CaptureCollision
+from parm.api.exceptions import TooManyMatches, CaptureCollision, PatternValueMismatch
 from parm.api.match_result import MatchResult
+from parm.api.parsing.arm_asm import Reg
 from parm.programs import snippet
 
 
@@ -115,3 +117,59 @@ class ArmPatternTest(TestCase):
         """)
         self.program.match(pattern, mr, candidates=self.program.asm_cursors)
         assert mr['target'].address == 0x10000
+
+    def test_data_bytes(self):
+        self.program.add_data_block(0x1000, b'\xAA\xBB')
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+        .db 0xAA, 0xBB
+        """)
+        self.program.create_cursor(0x1000).match(pattern, mr)
+
+    def test_data_words(self):
+        self.program.add_data_block(0x1000, b'\xAA\xBB\xCC\xDD\xEE\xFF')
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+        .dw 0xBBAA, 0xDDCC
+        .dw 0xFFEE
+        """)
+        self.program.create_cursor(0x1000).match(pattern, mr)
+
+    def test_data_dwords(self):
+        self.program.add_data_block(0x1000, pack('<II', 0x1234, 0x5678))
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+        .dd 0x1234, 0x5678
+        """)
+        c = self.program.create_cursor(0x1000)
+        c.match(pattern, mr)
+
+        with pytest.raises(PatternValueMismatch):
+            with mr.transact():
+                c.match(self.program.create_pattern('.dd 0x3412, 0x7856'))
+
+    def test_data_qwords(self):
+        self.program.add_data_block(0x1000, pack('<QQ', 0xDEAD, 0xBEEF))
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+        .dq 0xDEAD, 0xBEEF
+        """)
+        self.program.create_cursor(0x1000).match(pattern, mr)
+
+    def test_mixed_code_and_data(self):
+        self.program.add_code_block("""
+        0x2000: mov r0, r2
+        0x2004: mov r1, r0
+        0x2008:
+        """)
+        self.program.add_data_block(0x2008, pack('<I', 0xDEADBEEF))
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+        mov @:reg, r2
+        mov r1, @:reg
+        .dd 0xDEADBEEF
+        """)
+        self.program.create_cursor(0x2000).match(pattern, mr)
+        reg = mr['reg']
+        assert isinstance(reg, Reg)
+        assert reg.name == 'r0'

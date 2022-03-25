@@ -635,6 +635,14 @@ dword_pat_array = data_pat_array(DataDword)
 qword_pat_array = data_pat_array(DataQword)
 
 
+def basic_array_type(array_type):
+    def func(self, parts):
+        (pats,) = parts
+        return array_type(pats)
+
+    return func
+
+
 # noinspection PyMethodMayBeStatic
 class ArmPatternTransformer(Transformer):
     def opcode_wildcard(self, parts):
@@ -649,20 +657,12 @@ class ArmPatternTransformer(Transformer):
         return val
 
     def data_val_pats(self, parts):
-        (pats, ) = parts
-        return pats
+        return parts
 
-    def db(self, pats):
-        return byte_pat_array(pats)
-
-    def dw(self, pats):
-        return word_pat_array(pats)
-
-    def dd(self, pats):
-        return dword_pat_array(pats)
-
-    def dq(self, pats):
-        return qword_pat_array(pats)
+    db = basic_array_type(byte_pat_array)
+    dw = basic_array_type(word_pat_array)
+    dd = basic_array_type(dword_pat_array)
+    dq = basic_array_type(qword_pat_array)
 
     def data_line(self, parts):
         (pat, ) = parts

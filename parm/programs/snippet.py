@@ -3,7 +3,7 @@ from typing import List
 from parm.api.cursor import Cursor
 from parm.api.common import default_match_result
 from parm.api.match_result import MatchResult
-from parm.api.parsing.arm_asm import Instruction, ArmTransformer, Address
+from parm.api.parsing.arm_asm import Instruction, ArmTransformer, Address, Block
 from parm.api.parsing.arm_pat import ArmPatternTransformer
 from parm.api.program import Program
 from parm.api.type_hints import ReversibleIterable
@@ -12,8 +12,9 @@ from parm import parsers
 
 
 class PreInitCursor(Cursor):
-    def __init__(self, env, _next):
+    def __init__(self, env, program, _next):
         super().__init__(env)
+        self._program = program
         self._next = _next
 
     @property
@@ -41,9 +42,16 @@ class PreInitCursor(Cursor):
 
 
 class PostTermCursor(Cursor):
-    def __init__(self, env, _prev):
+    def __init__(self, env, program, prev, address=None):
         super().__init__(env)
-        self._prev = _prev
+        self._program = program
+        self._prev = prev
+
+        if address is not None:
+            if isinstance(address, Address):
+                address = address.address
+            assert isinstance(address, int)
+        self._address = address
 
     @property
     def instruction(self) -> Instruction:
@@ -51,7 +59,7 @@ class PostTermCursor(Cursor):
 
     @property
     def address(self):
-        return None
+        return self._address
 
     def match(self, pattern, match_result: MatchResult = None, **kwargs) -> Cursor:
         raise ValueError('Nothing matches a PostTerm cursor')
@@ -63,10 +71,16 @@ class PostTermCursor(Cursor):
         return self._prev
 
     def read_bytes(self, count) -> bytes:
-        raise ValueError('No data can be read from a PostTerm cursor')
+        address = self._address
+        if address is None:
+            raise ValueError('No data can be read from an unaddressed PostTerm cursor')
+        return self._program.read_bytes(address, count)
 
     def get_cursor_by_offset(self, offset) -> Cursor:
-        raise ValueError('An offset cannot be taken from a PostTerm cursor')
+        address = self._address
+        if address is None:
+            raise ValueError('An offset cannot be taken from an unaddressed PostTerm cursor')
+        return self._program.create_cursor(address + offset)
 
 
 class SnippetCursor(Cursor):
@@ -122,6 +136,13 @@ class DataBlock:
         self.start_address = address
         self.data = data
 
+    def prepend(self, data):
+        self.start_address -= len(data)
+        self.data = data + self.data
+
+    def append(self, data):
+        self.data += data
+
     @property
     def size(self):
         return len(self.data)
@@ -151,11 +172,25 @@ class SnippetProgram(Program):
         self._data_blocks = []  # type: List[DataBlock]
 
     def add_data_block(self, address, data):
-        self._data_blocks.append(DataBlock(address, data))
+        try:
+            block = self.find_block(address)
+        except ValueError:
+            self._data_blocks.append(DataBlock(address, data))
+            return
+
+        start_address = address
+        end_address = address + len(data)
+
+        if block.start_address == end_address:
+            block.prepend(data)
+        if block.end_address == start_address:
+            block.append(data)
+        self._data_blocks.remove(block)
+        self.add_data_block(block.start_address, block.data)
 
     def find_block(self, address):
         for block in self._data_blocks:
-            if block.start_address <= address < block.end_address:
+            if block.start_address <= address <= block.end_address:
                 return block
         raise ValueError(f'No data found for address 0x{address:X}')
 
@@ -176,9 +211,9 @@ class SnippetProgram(Program):
         self._cursors.extend(cursors)
 
         term = cursors[-1]
-        term.set_next(PostTermCursor(self.env, term))
+        term.set_next(PostTermCursor(self.env, self, term, code_block.terminal))
         init = cursors[0]
-        init.set_prev(PreInitCursor(self.env, init))
+        init.set_prev(PreInitCursor(self.env, self, init))
 
         for c in cursors:
             adr = c.address
@@ -230,7 +265,7 @@ class ArmCodeLoader:
         self.parser = parsers.create_arm_parser()
         self.transformer = ArmTransformer()
 
-    def load(self, code_block):
+    def load(self, code_block) -> Block:
         return self.transformer.transform(self.parser.parse(code_block))
 
 
