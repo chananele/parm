@@ -32,28 +32,33 @@ REG_INDEX = _build_reg_index()
 
 
 class Line:
-    def __init__(self, instruction, address=None):
+    def __init__(self, instruction=None, address=None):
         self.address = address
         self.instruction = instruction
+
+        assert instruction is not None or address is not None
 
     def __eq__(self, other):
         if not isinstance(other, Line):
             return False
-        if self.address != other.address:
-            return False
-        return self.instruction == other.instruction
+        return self.instruction == other.instruction and self.address == other.address
 
     def __repr__(self):
-        if self.address is None:
-            return f'Line({self.instruction!r})'
-        else:
-            return f'Line({self.instruction!r}, {self.address!r})'
+        args = []
+        if self.address is not None:
+            args.append(f'address={self.address!r}')
+        if self.instruction is not None:
+            args.append(f'instruction={self.instruction!r}')
+        return f'Line({", ".join(args)})'
 
     def __str__(self):
         address_str = ''
         if self.address is not None:
-            address_str = '{}: '.format(self.address)
-        return address_str + str(self.instruction)
+            address_str = f'{self.address!s}: '
+        instruction_str = ''
+        if self.instruction is not None:
+            instruction_str = f'{self.instruction!s}'
+        return address_str + instruction_str
 
 
 class Reg:

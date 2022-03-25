@@ -150,8 +150,8 @@ class CommandPat(ContainerBase, Matchable):
     def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
         return self.value.match(cursor, env, match_result, **kwargs)
 
-    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **_kwargs) -> Cursor:
-        return self.value.match_reverse(cursor, env, match_result, **_kwargs)
+    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        return self.value.match_reverse(cursor, env, match_result, **kwargs)
 
 
 class MemOffsetPat(ContainerBase):
@@ -515,8 +515,9 @@ class InstructionPat(Matchable):
         return cursor.next()
 
     def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        cursor = cursor.prev()
         self.match_logic(cursor, env, match_result, **kwargs)
-        return cursor.prev()
+        return cursor
 
 
 class PythonCodeBase(CodeLineBase, ABC):
@@ -606,7 +607,7 @@ class SizedData(ContainerBase):
     def endian(self) -> Literal["little", "big"]:
         return 'little'
 
-    def match(self, cursor: Cursor, _env: Env, match_result: MatchResult, **_kwargs) -> Cursor:
+    def match_logic(self, cursor: Cursor, _env: Env, match_result: MatchResult, **_kwargs):
         v = self.value
         data = int.from_bytes(cursor.read_bytes(self.size), self.endian)
         if isinstance(v, int):
@@ -616,7 +617,14 @@ class SizedData(ContainerBase):
             assert isinstance(v, WildcardSingle)
             match_result[v.capture] = data
 
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        self.match_logic(cursor, env, match_result, **kwargs)
         return cursor.get_cursor_by_offset(self.size)
+
+    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        cursor = cursor.get_cursor_by_offset(-self.size)
+        self.match_logic(cursor, env, match_result, **kwargs)
+        return cursor
 
 
 class DataByte(SizedData):
@@ -645,9 +653,15 @@ class DataQword(SizedData):
 
 class DataSeq(ContainerBase):
     def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
-        seq = self.value  # type: List
+        seq = self.value  # type: List[SizedData]
         for p in seq:
             cursor = p.match(cursor, env, match_result, **kwargs)
+        return cursor
+
+    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        seq = self.value  # type: List[SizedData]
+        for p in reversed(seq):
+            cursor = p.match_reverse(cursor, env, match_result, **kwargs)
         return cursor
 
 

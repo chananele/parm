@@ -229,3 +229,34 @@ class ArmPatternTest(TestCase):
 
         self.program.create_cursor(0x200C).match(pattern, match_result=mr)
         assert mr['reg'].name == 'r1'
+
+    def test_mixed_code_and_data_reverse(self):
+        self.program.add_code_block("""
+        0x2008: mov r0, r2
+        0x200C: mov r1, r0
+        0x2010:
+        """)
+        self.program.add_data_block(0x2000, pack('<II', 0xDEADBEEF, 0x1337))
+        mr = MatchResult()
+        good_pattern = self.program.create_pattern("""
+            .dd 0xDEADBEEF
+            .dw 0x1337, 0
+          > mov r0, r2
+            mov r1, r0
+        """)
+        bad_pattern = self.program.create_pattern("""
+            .dd 0xDEADBEEF
+            .dw 0x1338, 0
+          > mov r0, r2
+        """)
+
+        c = self.program.create_cursor(0x2008)
+        c.match(good_pattern, mr)
+        with pytest.raises(PatternValueMismatch):
+            c.match(bad_pattern, mr)
+
+        with pytest.raises(PatternValueMismatch):
+            self.program.create_cursor(0x2004).match(good_pattern, mr)
+
+        with pytest.raises(InvalidAccess):
+            self.program.create_cursor(0x200C).match(good_pattern, mr)

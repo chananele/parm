@@ -89,12 +89,12 @@ class BlockPattern:
     @default_match_result
     def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
         anchor_ix = self.anchor_index
-        if anchor_ix:
-            c = cursor.prev()
-            for line in reversed(self.lines[:anchor_ix]):
-                if not c:
-                    raise NoMatches()
-                c = line.match_reverse(c, env, match_result, **kwargs)
+
+        c = cursor
+        for line in reversed(self.lines[:anchor_ix]):
+            if not c:
+                raise NoMatches()
+            c = line.match_reverse(c, env, match_result, **kwargs)
 
         c = cursor
         for line in self.lines[anchor_ix:]:

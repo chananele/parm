@@ -85,9 +85,9 @@ class PostTermCursor(Cursor):
 
 
 class SnippetCursor(Cursor):
-    def __init__(self, env, program, line=None, address=None, _prev=None, _next=None):
+    def __init__(self, env, program, instruction=None, address=None, _prev=None, _next=None):
         super().__init__(env)
-        self._line = line
+        self._instruction = instruction
         self._address = address
         self._program = program
         self._prev = _prev
@@ -97,15 +97,16 @@ class SnippetCursor(Cursor):
         parts = []
         if self._address:
             parts.append(f'0x{self._address:X}: ')
-        if self._line:
-            parts.append(str(self._line))
+        if self._instruction:
+            parts.append(str(self._instruction))
         return ''.join(parts)
 
     def read_bytes(self, count) -> bytes:
-        return self._program.read_bytes(self._address, count)
+        return self._program.read_bytes(self.address_val, count)
 
     def get_cursor_by_offset(self, offset) -> Cursor:
-        return self._program.create_cursor(self._address + offset)
+        new_address = self.address_val + offset
+        return self._program.create_cursor(new_address)
 
     def set_prev(self, _prev):
         self._prev = _prev
@@ -115,11 +116,21 @@ class SnippetCursor(Cursor):
 
     @property
     def instruction(self) -> Instruction:
-        return self._line.instruction
+        return self._instruction
 
     @property
     def address(self):
-        return self._line.address
+        adr = self._address
+        if adr is None:
+            return None
+        assert isinstance(adr, Address)
+        return adr
+
+    @property
+    def address_val(self):
+        adr = self.address
+        assert adr is not None
+        return adr.address
 
     @default_match_result
     def match(self, pattern, match_result: MatchResult, **kwargs) -> MatchResult:
@@ -205,7 +216,10 @@ class SnippetProgram(Program):
         if isinstance(code_block, str):
             code_block = self._code_loader.load(code_block)
 
-        cursors = [SnippetCursor(self.env, self, line=line) for line in code_block]
+        cursors = [
+            SnippetCursor(self.env, self, address=line.address, instruction=line.instruction)
+            for line in code_block]
+
         for i in range(len(cursors) - 1):
             cursors[i + 1].set_prev(cursors[i])
             cursors[i].set_next(cursors[i + 1])
@@ -237,7 +251,7 @@ class SnippetProgram(Program):
                 self.find_block(address)
             except InvalidAccess:
                 raise InvalidAccess('Failed to find cursor with address "{}"'.format(address))
-            result = SnippetCursor(self.env, self, address=address)
+            result = SnippetCursor(self.env, self, address=Address(address))
             self._cursor_cache[address] = result
             return result
 
