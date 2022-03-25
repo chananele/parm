@@ -2,7 +2,7 @@ import pytest
 from unittest import TestCase
 from struct import pack
 
-from parm.api.exceptions import TooManyMatches, CaptureCollision, PatternValueMismatch
+from parm.api.exceptions import TooManyMatches, CaptureCollision, PatternValueMismatch, InvalidAccess
 from parm.api.match_result import MatchResult
 from parm.api.parsing.arm_asm import Reg
 from parm.programs import snippet
@@ -173,3 +173,20 @@ class ArmPatternTest(TestCase):
         reg = mr['reg']
         assert isinstance(reg, Reg)
         assert reg.name == 'r0'
+
+    def test_anchor_sanity(self):
+        self.program.add_code_block("""
+        0x2000: mov  r0, r2
+        0x2004: mov  r1, r0
+        0x2008: bleq 0x2004
+        """)
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+            mov  r0, r2
+          > mov  r1, r0
+            bleq @
+        """)
+        self.program.create_cursor(0x2004).match(pattern, mr)
+
+        with pytest.raises(InvalidAccess):
+            self.program.create_cursor(0x2000).match(pattern, mr)

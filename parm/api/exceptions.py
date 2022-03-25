@@ -14,6 +14,11 @@ class ExpectFailure(PatternMismatchException):
     pass
 
 
+class InvalidAccess(PatternMismatchException):
+    def __init__(self, message):
+        self.message = message
+
+
 class CaptureCollision(PatternMismatchException):
     def __init__(self, name, exiting, updated):
         self.name = name

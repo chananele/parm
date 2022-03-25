@@ -41,13 +41,26 @@ class CodeLinePatternBase(LinePattern):
 
 class BlockPattern:
     @property
+    def anchor_index(self) -> int:
+        raise NotImplementedError()
+
+    @property
     def lines(self):
         raise NotImplementedError()
 
     @default_match_result
     def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
-        for line in self.lines:
-            if not cursor:
+        anchor_ix = self.anchor_index
+        if anchor_ix:
+            c = cursor.prev()
+            for line in self.lines[:anchor_ix]:
+                if not c:
+                    raise NoMatches()
+                c = line.match_reverse(c, env, match_result, **kwargs)
+
+        c = cursor
+        for line in self.lines[anchor_ix:]:
+            if not c:
                 raise NoMatches()
-            cursor = line.match(cursor, env, match_result, **kwargs)
-        return cursor
+            c = line.match(c, env, match_result, **kwargs)
+        return c

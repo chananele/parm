@@ -2,6 +2,7 @@ from typing import List
 
 from parm.api.cursor import Cursor
 from parm.api.common import default_match_result
+from parm.api.exceptions import InvalidAccess
 from parm.api.match_result import MatchResult
 from parm.api.parsing.arm_asm import Instruction, ArmTransformer, Address, Block
 from parm.api.parsing.arm_pat import ArmPatternTransformer
@@ -19,26 +20,26 @@ class PreInitCursor(Cursor):
 
     @property
     def instruction(self) -> Instruction:
-        raise ValueError('PreInit cursor has no instruction')
+        raise InvalidAccess('PreInit cursor has no instruction')
 
     @property
     def address(self):
         return None
 
     def match(self, pattern, match_result: MatchResult = None, **kwargs) -> Cursor:
-        raise ValueError('Nothing matches a PreInit cursor')
+        raise InvalidAccess('Nothing matches a PreInit cursor')
 
     def read_bytes(self, count) -> bytes:
-        raise ValueError('No data can be read from a PreInit cursor')
+        raise InvalidAccess('No data can be read from a PreInit cursor')
 
     def get_cursor_by_offset(self, offset) -> Cursor:
-        raise ValueError('An offset cannot be taken from a PreInit cursor')
+        raise InvalidAccess('An offset cannot be taken from a PreInit cursor')
 
     def next(self):
         return self._next
 
     def prev(self):
-        raise ValueError('No cursor comes before a PreInit cursor')
+        raise InvalidAccess('No cursor comes before a PreInit cursor')
 
 
 class PostTermCursor(Cursor):
@@ -55,17 +56,17 @@ class PostTermCursor(Cursor):
 
     @property
     def instruction(self) -> Instruction:
-        raise ValueError('PostTerm cursor has no instruction')
+        raise InvalidAccess('PostTerm cursor has no instruction')
 
     @property
     def address(self):
         return self._address
 
     def match(self, pattern, match_result: MatchResult = None, **kwargs) -> Cursor:
-        raise ValueError('Nothing matches a PostTerm cursor')
+        raise InvalidAccess('Nothing matches a PostTerm cursor')
 
     def next(self):
-        raise ValueError('No cursor comes after a PostTerm cursor')
+        raise InvalidAccess('No cursor comes after a PostTerm cursor')
 
     def prev(self):
         return self._prev
@@ -73,13 +74,13 @@ class PostTermCursor(Cursor):
     def read_bytes(self, count) -> bytes:
         address = self._address
         if address is None:
-            raise ValueError('No data can be read from an unaddressed PostTerm cursor')
+            raise InvalidAccess('No data can be read from an unaddressed PostTerm cursor')
         return self._program.read_bytes(address, count)
 
     def get_cursor_by_offset(self, offset) -> Cursor:
         address = self._address
         if address is None:
-            raise ValueError('An offset cannot be taken from an unaddressed PostTerm cursor')
+            raise InvalidAccess('An offset cannot be taken from an unaddressed PostTerm cursor')
         return self._program.create_cursor(address + offset)
 
 
@@ -174,7 +175,7 @@ class SnippetProgram(Program):
     def add_data_block(self, address, data):
         try:
             block = self.find_block(address)
-        except ValueError:
+        except InvalidAccess:
             self._data_blocks.append(DataBlock(address, data))
             return
 
@@ -192,12 +193,12 @@ class SnippetProgram(Program):
         for block in self._data_blocks:
             if block.start_address <= address <= block.end_address:
                 return block
-        raise ValueError(f'No data found for address 0x{address:X}')
+        raise InvalidAccess(f'No data found for address 0x{address:X}')
 
     def read_bytes(self, address, size):
         block = self.find_block(address)
         if address + size > block.end_address:
-            raise ValueError(f'Not enough data in block {block!s} to read {size} bytes!')
+            raise InvalidAccess(f'Not enough data in block {block!s} to read {size} bytes!')
         return block.read_bytes(address, size)
 
     def add_code_block(self, code_block):
@@ -228,14 +229,14 @@ class SnippetProgram(Program):
 
     def create_cursor(self, address) -> Cursor:
         if address is None:
-            raise ValueError('Invalid cursor address!')
+            raise InvalidAccess('Invalid cursor address!')
         try:
             return self._cursor_cache[address]
         except KeyError:
             try:
                 self.find_block(address)
-            except ValueError:
-                raise ValueError('Failed to find cursor with address "{}"'.format(address))
+            except InvalidAccess:
+                raise InvalidAccess('Failed to find cursor with address "{}"'.format(address))
             result = SnippetCursor(self.env, self, address=address)
             self._cursor_cache[address] = result
             return result

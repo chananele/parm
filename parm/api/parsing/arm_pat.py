@@ -1,3 +1,4 @@
+from abc import ABC
 from typing import List, Literal
 
 from fnmatch import fnmatch
@@ -6,6 +7,7 @@ from collections import OrderedDict
 
 from lark import Transformer, Token
 
+from parm.api.matchable import Matchable
 from parm.api.parsing import arm_asm
 from parm.api.parsing.utils import indent
 from parm.api.common import default_match_result
@@ -144,10 +146,12 @@ class ContainerBase:
         return self.value == other.value
 
 
-class CommandPat(ContainerBase):
-    @default_match_result
+class CommandPat(ContainerBase, Matchable):
     def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
         return self.value.match(cursor, env, match_result, **kwargs)
+
+    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **_kwargs) -> Cursor:
+        return self.value.match_reverse(cursor, env, match_result, **_kwargs)
 
 
 class MemOffsetPat(ContainerBase):
@@ -445,23 +449,31 @@ class Label(ContainerBase):
 
 
 class BlockPat(BlockPattern):
-    def __init__(self, lines):
+    def __init__(self, lines, anchor_index=0):
         self._lines = lines
+        self._anchor_index = anchor_index
 
     @property
     def lines(self):
         return self._lines
 
+    @property
+    def anchor_index(self):
+        return self._anchor_index
+
     def __repr__(self):
-        return f'BlockPat({self.lines!r})'
+        if self.anchor_index == 0:
+            return f'BlockPat({self.lines!r})'
+        return f'BlockPat({self.lines!r}, {self.anchor_index})'
 
     def __str__(self):
         line_strs = []
-        for line in self.lines:
+        for i, line in enumerate(self.lines):
+            prefix = '  > ' if i == self.anchor_index and i != 0 else '    '
             if isinstance(line, AddressPat):
-                line_strs.append(f'{line}:')
+                line_strs.append(f'{prefix}{line}:')
             elif isinstance(line, CommandPat):
-                line_strs.append(indent(str(line)))
+                line_strs.append(indent(f'{prefix}{line!s}'))
             else:
                 raise TypeError(f'Invalid line of type {type(line)}, {line}')
 
@@ -470,10 +482,10 @@ class BlockPat(BlockPattern):
     def __eq__(self, other):
         if not isinstance(other, BlockPat):
             return False
-        return self.lines == other.lines
+        return self.lines == other.lines and self.anchor_index == other.anchor_index
 
 
-class InstructionPat:
+class InstructionPat(Matchable):
     def __init__(self, opcode_pat, operand_pats):
         self.opcode_pat = opcode_pat
         self.operand_pats = operand_pats
@@ -489,15 +501,21 @@ class InstructionPat:
             return False
         return self.opcode_pat == other.opcode_pat and self.operand_pats == other.operand_pats
 
-    @default_match_result
-    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+    def match_logic(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs):
         inst = cursor.instruction
         self.opcode_pat.match(inst.opcode, env, match_result, **kwargs)
         self.operand_pats.match(inst.operands, env, match_result, **kwargs)
+
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        self.match_logic(cursor, env, match_result, **kwargs)
         return cursor.next()
 
+    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        self.match_logic(cursor, env, match_result, **kwargs)
+        return cursor.prev()
 
-class PythonCodeBase(CodeLinePatternBase):
+
+class PythonCodeBase(CodeLinePatternBase, Matchable, ABC):
     var_ix = 0
 
     def __init__(self, parts):
@@ -565,10 +583,16 @@ class PythonCodeLine(PythonCodeBase):
     def __str__(self):
         return f'%{self.unquote()}'
 
+    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        raise NotImplementedError()
+
 
 class PythonCodeLines(PythonCodeBase):
     def __str__(self):
         return f'%%\n{self.unquote()}\n%%'
+
+    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        raise NotImplementedError()
 
 
 class SizedData(ContainerBase):
@@ -641,6 +665,11 @@ def basic_array_type(array_type):
         return array_type(pats)
 
     return func
+
+
+class AnchoredLine:
+    def __init__(self, line):
+        self.line = line
 
 
 # noinspection PyMethodMayBeStatic
@@ -729,6 +758,10 @@ class ArmPatternTransformer(Transformer):
     def line_pat(self, parts):
         (result,) = parts
         return result
+
+    def anchored_line_pat(self, parts):
+        (line_pat, ) = parts
+        return AnchoredLine(line_pat)
 
     def python_code_line(self, parts):
         result = []
@@ -830,12 +863,25 @@ class ArmPatternTransformer(Transformer):
     def addressed_command(self, parts):
         return parts
 
-    def block_pat(self, line_pats):
+    def simple_block_pat(self, line_pats):
         lines = []
         for lp in line_pats:
             assert isinstance(lp, list), lp
             lines.extend(lp)
         return BlockPat(lines)
+
+    def anchored_block_pat(self, line_pats):
+        lines = []
+        anchor_ix = None
+        for i, lp in enumerate(line_pats):
+            if isinstance(lp, AnchoredLine):
+                assert anchor_ix is None
+                anchor_ix = i
+                lp = lp.line
+            assert isinstance(lp, list), lp
+            lines.extend(lp)
+        assert anchor_ix is not None
+        return BlockPat(lines, anchor_index=anchor_ix)
 
     def flexible_operand_pat(self, parts):
         (pat, ) = parts

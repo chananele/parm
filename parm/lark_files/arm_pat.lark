@@ -175,6 +175,7 @@ data_pat: _DB _WS data_val_pats -> db
 
 _MULTILINE_CODE: "%%"
 _UNILINE_CODE: /%(?!%)/
+_ANCHOR: ">"
 
 command_pat: instruction_pat [_COMMENT] -> instruction_line
            | _UNILINE_CODE [_WS] python_code_line -> code_line
@@ -185,7 +186,10 @@ line_pat: command_pat -> lone_command
         | line_address_pat [_WS] ":" [_WS] [_COMMENT] -> lone_address
         | line_address_pat [_WS] ":" [_WS] command_pat -> addressed_command
 
-block_pat: [_AWS] line_pat (_NL [_AWS] line_pat)* [_AWS]
+anchored_line_pat: _ANCHOR [_WS] line_pat
+
+block_pat: [_AWS] [_ANCHOR [_WS]] line_pat (_NL [_AWS] line_pat)* [_AWS] -> simple_block_pat
+         | [_AWS] line_pat (_NL [_AWS] line_pat)* _NL [_AWS] anchored_line_pat (_NL [_AWS] line_pat)* [_AWS] -> anchored_block_pat
 
 %import .arm_asm.UNSIGNED_NUM
 %import .arm_asm.NUM
