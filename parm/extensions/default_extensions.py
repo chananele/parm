@@ -2,9 +2,32 @@ from typing import Iterable
 
 from parm.api.cursor import Cursor
 from parm.api.common import find_single
+from parm.api.env import Env
+from parm.api.match_result import MatchResult
+from parm.api.matchable import Matchable
 
 from parm.extensions.extension_base import ExecutionExtensionBase
 from parm.extensions.extension_base import injected_func, magic_getter, magic_setter
+
+
+class InstructionSkipper(Matchable):
+    def __init__(self, ext: ExecutionExtensionBase, skip_count: int):
+        self.ext = ext
+        self.skip_count = skip_count
+
+    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        assert cursor is self.ext.cursor
+        n = self.skip_count
+        for _ in range(n):
+            cursor = cursor.next()
+        return cursor
+
+    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+        assert cursor is self.ext.cursor
+        n = self.skip_count
+        for _ in range(n):
+            cursor = cursor.prev()
+        return cursor
 
 
 class DefaultExtension(ExecutionExtensionBase):
@@ -23,10 +46,7 @@ class DefaultExtension(ExecutionExtensionBase):
 
     @injected_func
     def skip_instructions(self, n):
-        c = self.cursor
-        for _ in range(n):
-            c = c.next()
-        self.cursor = c
+        return InstructionSkipper(self, n)
 
     @magic_getter
     def next_instruction(self):

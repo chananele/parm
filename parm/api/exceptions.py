@@ -19,6 +19,14 @@ class InvalidAccess(PatternMismatchException):
         self.message = message
 
 
+class PatternSyntaxException(PatternMismatchException):
+    pass
+
+
+class PatternNotReversible(PatternSyntaxException):
+    pass
+
+
 class CaptureCollision(PatternMismatchException):
     def __init__(self, name, exiting, updated):
         self.name = name

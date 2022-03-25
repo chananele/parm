@@ -75,7 +75,7 @@ class ArmPatternTest(TestCase):
         mr = MatchResult()
         pattern = self.program.create_pattern("""
             mov r0, @
-            % skip_instructions(2)
+            % cursor = cursor.next().next()
             bl  @:target
         """)
         c.match(pattern, match_result=mr)
@@ -190,3 +190,42 @@ class ArmPatternTest(TestCase):
 
         with pytest.raises(InvalidAccess):
             self.program.create_cursor(0x2000).match(pattern, mr)
+
+    def test_matchable_generator(self):
+        self.program.add_code_block("""
+            0x2000: mov r0, r1
+                    mov r0, r2
+                    ldr r4, [r0]
+                    bl  0x8000
+            """)
+        c = self.program.create_cursor(0x2000)
+
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+            mov r0, @
+            !skip_instructions(2)
+            bl  @:target
+        """)
+        c.match(pattern, match_result=mr)
+        assert mr['target'].address == 0x8000
+
+    def test_matchable_generator_reverse(self):
+        self.program.add_code_block("""
+            0x2000: mov r0, r1
+                    mov r0, r2
+                    ldr r4, [r0]
+            0x200C: bl  0x1000
+            """)
+
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+            mov r0, @:reg
+            !skip_instructions(2)
+          > bl  0x1000
+        """)
+
+        with pytest.raises(InvalidAccess):
+            self.program.create_cursor(0x2000).match(pattern, match_result=mr)
+
+        self.program.create_cursor(0x200C).match(pattern, match_result=mr)
+        assert mr['reg'].name == 'r1'

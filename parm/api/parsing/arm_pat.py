@@ -16,7 +16,7 @@ from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMat
 from parm.api.match_result import MatchResult
 from parm.api.env import Env
 from parm.api.cursor import Cursor
-from parm.api.pattern import CodeLinePatternBase, BlockPattern
+from parm.api.pattern import CodeLineBase, CodeLinePatternBase, BlockPattern, CodeLineMatchableGenerator
 
 
 def _consume_list(lst: list, operands: list, env: Env, match_result: MatchResult, complete):
@@ -519,7 +519,7 @@ class InstructionPat(Matchable):
         return cursor.prev()
 
 
-class PythonCodeBase(CodeLinePatternBase, Matchable, ABC):
+class PythonCodeBase(CodeLineBase, ABC):
     var_ix = 0
 
     def __init__(self, parts):
@@ -583,20 +583,18 @@ class PythonCodeBase(CodeLinePatternBase, Matchable, ABC):
         return self.parts == other.parts
 
 
-class PythonCodeLine(PythonCodeBase):
+class PythonCodeLine(PythonCodeBase, CodeLinePatternBase):
     def __str__(self):
         return f'%{self.unquote()}'
 
-    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
-        raise NotImplementedError()
 
-
-class PythonCodeLines(PythonCodeBase):
+class PythonCodeLines(PythonCodeBase, CodeLinePatternBase):
     def __str__(self):
         return f'%%\n{self.unquote()}\n%%'
 
-    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
-        raise NotImplementedError()
+
+class PythonMatchableGenerator(PythonCodeBase, CodeLineMatchableGenerator):
+    pass
 
 
 class SizedData(ContainerBase):
@@ -678,6 +676,10 @@ class AnchoredLine:
 
 # noinspection PyMethodMayBeStatic
 class ArmPatternTransformer(Transformer):
+    def matchable_code(self, parts):
+        (code_parts, ) = parts
+        return CommandPat(PythonMatchableGenerator(code_parts))
+
     def opcode_wildcard(self, parts):
         (capture,) = parts
         return OpcodePat('*', capture)
