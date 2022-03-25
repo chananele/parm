@@ -95,3 +95,7 @@ class ExecutionExtensionBase(ExtensionBase):
     @property
     def match_result(self):
         return self.execution_context.match_result
+
+    @property
+    def program(self):
+        return self.execution_context.program

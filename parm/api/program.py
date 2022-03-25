@@ -1,11 +1,10 @@
+from parm.api.exceptions import UnresolvedSymbolException
 from parm.api.type_hints import ReversibleIterable
 
 from parm.api.env import Env
 from parm.api.match_result import MatchResult
 from parm.api.cursor import Cursor, NullCursor
 from parm.api.common import find_all, find_first, find_single, default_match_result
-
-from parm.extensions.default_extensions import DefaultExtension
 
 
 def _repeat(initial, func, count):
@@ -27,6 +26,7 @@ class Program:
         self.env.register_extension_type(ext_type)
 
     def register_default_extensions(self):
+        from parm.extensions.default_extensions import DefaultExtension
         self.register_extension_type(DefaultExtension)
 
     @default_match_result
@@ -49,7 +49,7 @@ class Program:
         raise NotImplementedError()
 
     def create_null_cursor(self) -> Cursor:
-        return NullCursor(self.env)
+        return NullCursor(self)
 
     def match(self, pattern, match_result, **kwargs) -> Cursor:
         return self.create_null_cursor().match(pattern, match_result, **kwargs)
@@ -58,7 +58,7 @@ class Program:
         raise NotImplementedError()
 
     def find_symbol(self, symbol_name) -> Cursor:
-        raise NotImplementedError()
+        raise UnresolvedSymbolException(symbol_name)
 
     @property
     def asm_cursors(self) -> ReversibleIterable[Cursor]:

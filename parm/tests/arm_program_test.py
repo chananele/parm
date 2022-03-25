@@ -260,3 +260,6 @@ class ArmPatternTest(TestCase):
 
         with pytest.raises(InvalidAccess):
             self.program.create_cursor(0x200C).match(good_pattern, mr)
+
+    def test_goto_next(self):
+        pass

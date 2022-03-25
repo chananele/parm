@@ -1,12 +1,10 @@
-from parm.api.env import Env
 from parm.api.match_result import MatchResult
-from parm.api.exceptions import NoMoreInstructions
 from parm.api.parsing.arm_asm import Instruction
 
 
 class Cursor:
-    def __init__(self, env):
-        self.env = env  # type: Env
+    def __init__(self, program):
+        self.program = program
 
     @property
     def instruction(self) -> Instruction:
@@ -19,10 +17,10 @@ class Cursor:
     def read_bytes(self, count) -> bytes:
         raise NotImplementedError()
 
-    def get_cursor_by_offset(self, offset):
+    def get_cursor_by_offset(self, offset: int):
         """
 
-        :param int offset:
+        :param offset:
         :return:
         :rtype: Cursor
         """
@@ -54,26 +52,13 @@ class Cursor:
         raise NotImplementedError()
 
 
-class TerminalCursor(Cursor):
-    @property
-    def address(self):
-        raise NotImplementedError()
-
-    @property
-    def instruction(self):
-        raise NoMoreInstructions()
-
-    def match(self, pattern, match_result: MatchResult = None, **kwargs) -> Cursor:
-        raise NoMoreInstructions()
-
-    def next(self):
-        raise NoMoreInstructions()
-
-    def prev(self):
-        raise NotImplementedError()
-
-
 class NullCursor(Cursor):
+    def read_bytes(self, count) -> bytes:
+        raise NotImplementedError()
+
+    def get_cursor_by_offset(self, offset):
+        raise NotImplementedError()
+
     def prev(self):
         raise NotImplementedError()
 
@@ -89,4 +74,4 @@ class NullCursor(Cursor):
         raise NotImplementedError()
 
     def match(self, pattern, match_result: MatchResult = None, **kwargs) -> Cursor:
-        return pattern.match(self, self.env, match_result, **kwargs)
+        return pattern.match(self, self.program, match_result, **kwargs)

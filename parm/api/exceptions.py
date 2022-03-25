@@ -19,12 +19,21 @@ class InvalidAccess(PatternMismatchException):
         self.message = message
 
 
-class PatternSyntaxException(PatternMismatchException):
+class PatternUsageException(PatternMismatchException):
     pass
 
 
-class PatternNotReversible(PatternSyntaxException):
+class ReverseSearchUnsupported(PatternUsageException):
     pass
+
+
+class ForwardSearchUnsupported(PatternUsageException):
+    pass
+
+
+class UnresolvedSymbolException(PatternMismatchException):
+    def __init__(self, name):
+        self.name = name
 
 
 class CaptureCollision(PatternMismatchException):

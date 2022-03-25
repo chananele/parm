@@ -2,9 +2,11 @@ from typing import Iterable
 
 from parm.api.cursor import Cursor
 from parm.api.common import find_single
-from parm.api.env import Env
+from parm.api.program import Program
+from parm.api.exceptions import PatternMismatchException
 from parm.api.match_result import MatchResult
 from parm.api.matchable import Matchable
+from parm.api.parsing.arm_asm import Address
 
 from parm.extensions.extension_base import ExecutionExtensionBase
 from parm.extensions.extension_base import injected_func, magic_getter, magic_setter
@@ -15,14 +17,14 @@ class InstructionSkipper(Matchable):
         self.ext = ext
         self.skip_count = skip_count
 
-    def match(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+    def match(self, cursor: Cursor, program: Program, match_result: MatchResult, **kwargs) -> Cursor:
         assert cursor is self.ext.cursor
         n = self.skip_count
         for _ in range(n):
             cursor = cursor.next()
         return cursor
 
-    def match_reverse(self, cursor: Cursor, env: Env, match_result: MatchResult, **kwargs) -> Cursor:
+    def match_reverse(self, cursor: Cursor, program: Program, match_result: MatchResult, **kwargs) -> Cursor:
         assert cursor is self.ext.cursor
         n = self.skip_count
         for _ in range(n):
@@ -66,6 +68,45 @@ class DefaultExtension(ExecutionExtensionBase):
         for c in cursors:
             mr = ms.new_scope()
             c.match(pattern, mr, **kwargs)
+
+    def search(self, pattern, advance, **kwargs):
+        cursor = self.cursor
+        mr = self.match_result
+        while True:
+            try:
+                with mr.transact():
+                    cursor.match(pattern, mr, **kwargs)
+                    return cursor
+            except PatternMismatchException:
+                cursor = advance(cursor)
+
+    @injected_func
+    def find_next(self, pattern, **kwargs):
+        return self.search(pattern, lambda c: c.next(), **kwargs)
+
+    @injected_func
+    def goto_next(self, pattern, **kwargs):
+        self.cursor = self.find_next(pattern, **kwargs)
+
+    @injected_func
+    def find_prev(self, pattern, **kwargs):
+        return self.search(pattern, lambda c: c.prev(), **kwargs)
+
+    @injected_func
+    def goto_prev(self, pattern, **kwargs):
+        self.cursor = self.find_prev(pattern, **kwargs)
+
+    @injected_func
+    def goto(self, location):
+        if isinstance(location, str):
+            try:
+                location = self.match_result[location]
+            except KeyError:
+                location = self.program.find_symbol(location)
+        if isinstance(location, Address):
+            location = location.address
+        assert isinstance(location, int)
+        return self.program.create_cursor(location)
 
 
 class AnalysisExtension(ExecutionExtensionBase):

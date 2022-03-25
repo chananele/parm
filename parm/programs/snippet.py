@@ -13,9 +13,9 @@ from parm import parsers
 
 
 class PreInitCursor(Cursor):
-    def __init__(self, env, program, _next):
-        super().__init__(env)
-        self._program = program
+    def __init__(self, program, _next):
+        super().__init__(program)
+        self.env = program.env
         self._next = _next
 
     @property
@@ -43,9 +43,9 @@ class PreInitCursor(Cursor):
 
 
 class PostTermCursor(Cursor):
-    def __init__(self, env, program, prev, address=None):
-        super().__init__(env)
-        self._program = program
+    def __init__(self, program, prev, address=None):
+        super().__init__(program)
+        self.env = program.env
         self._prev = prev
 
         if address is not None:
@@ -75,18 +75,19 @@ class PostTermCursor(Cursor):
         address = self._address
         if address is None:
             raise InvalidAccess('No data can be read from an unaddressed PostTerm cursor')
-        return self._program.read_bytes(address, count)
+        return self.program.read_bytes(address, count)
 
     def get_cursor_by_offset(self, offset) -> Cursor:
         address = self._address
         if address is None:
             raise InvalidAccess('An offset cannot be taken from an unaddressed PostTerm cursor')
-        return self._program.create_cursor(address + offset)
+        return self.program.create_cursor(address + offset)
 
 
 class SnippetCursor(Cursor):
-    def __init__(self, env, program, instruction=None, address=None, _prev=None, _next=None):
-        super().__init__(env)
+    def __init__(self, program, instruction=None, address=None, _prev=None, _next=None):
+        super().__init__(program)
+        self.env = program.env
         self._instruction = instruction
         self._address = address
         self._program = program
@@ -134,7 +135,7 @@ class SnippetCursor(Cursor):
 
     @default_match_result
     def match(self, pattern, match_result: MatchResult, **kwargs) -> MatchResult:
-        return pattern.match(self, self.env, match_result, **kwargs)
+        return pattern.match(self, self.program, match_result, **kwargs)
 
     def next(self):
         return self._next
@@ -217,7 +218,7 @@ class SnippetProgram(Program):
             code_block = self._code_loader.load(code_block)
 
         cursors = [
-            SnippetCursor(self.env, self, address=line.address, instruction=line.instruction)
+            SnippetCursor(self, address=line.address, instruction=line.instruction)
             for line in code_block]
 
         for i in range(len(cursors) - 1):
@@ -226,9 +227,9 @@ class SnippetProgram(Program):
         self._cursors.extend(cursors)
 
         term = cursors[-1]
-        term.set_next(PostTermCursor(self.env, self, term, code_block.terminal))
+        term.set_next(PostTermCursor(self, term, code_block.terminal))
         init = cursors[0]
-        init.set_prev(PreInitCursor(self.env, self, init))
+        init.set_prev(PreInitCursor(self, init))
 
         for c in cursors:
             adr = c.address
@@ -251,15 +252,12 @@ class SnippetProgram(Program):
                 self.find_block(address)
             except InvalidAccess:
                 raise InvalidAccess('Failed to find cursor with address "{}"'.format(address))
-            result = SnippetCursor(self.env, self, address=Address(address))
+            result = SnippetCursor(self, address=Address(address))
             self._cursor_cache[address] = result
             return result
 
     def create_pattern(self, pattern):
         return self._pattern_loader.load(pattern)
-
-    def find_symbol(self, symbol_name) -> Cursor:
-        raise NotImplementedError()
 
     @property
     def asm_cursors(self) -> ReversibleIterable[Cursor]:
@@ -287,6 +285,3 @@ class ArmCodeLoader:
 class ArmSnippetProgram(SnippetProgram):
     def __init__(self, env=None):
         super().__init__(env=env, pattern_loader=ArmPatternLoader(), code_loader=ArmCodeLoader())
-
-    def find_symbol(self, symbol_name) -> Cursor:
-        raise NotImplementedError()
