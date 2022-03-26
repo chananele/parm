@@ -99,3 +99,8 @@ class ExecutionExtensionBase(ExtensionBase):
     @property
     def program(self):
         return self.execution_context.program
+
+    def create_pattern(self, pattern):
+        if isinstance(pattern, str):
+            pattern = self.program.create_pattern(pattern)
+        return pattern

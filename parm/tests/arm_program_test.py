@@ -94,10 +94,10 @@ class ArmPatternTest(TestCase):
         pattern = self.program.create_pattern("""
             mov r0, r1
             %%
-            find_single([prev_instruction, next_instruction], ${
+            find_single([prev_instruction, next_instruction], '''
                 BL  @:target
                 MOV R3, R0
-            })
+            ''')
             %%
         """)
         c.match(pattern, match_result=mr)
@@ -112,7 +112,7 @@ class ArmPatternTest(TestCase):
             """)
         mr = MatchResult()
         pattern = self.program.create_pattern("""
-        % cursor = find_single(candidates, ${ MOVNE R0, R2 }).next()
+        % cursor = find_single(candidates, 'MOVNE R0, R2').next()
         BL @:target
         """)
         self.program.match(pattern, mr, candidates=self.program.cursors)
@@ -272,10 +272,10 @@ class ArmPatternTest(TestCase):
         """)
         pattern = self.program.create_pattern("""
         mov @:reg, r0
-        % goto_next(${ 
+        % goto_next('''
             mov r0, @:reg
             bleq @:target 
-        })
+        ''')
         """)
         mr = MatchResult()
         self.program.create_cursor(0x1000).match(pattern, match_result=mr)
@@ -299,20 +299,28 @@ class ArmPatternTest(TestCase):
         mr = MatchResult()
         self.program.find_first("""
         mov @:reg, r0
-        % goto_after_next(${ 
+        % goto_after_next('''
             mov r0, @:reg
             bleq @:target 
-        })
+        ''')
         """, mr)
         assert mr['target'].address == 0x2000
 
         mr = MatchResult()
         self.program.find_first("""
         mov @:reg, r0
-        % goto_after_next(${ 
+        % goto_after_next(''' 
             mov r0, @:reg
             bleq @:target 
-        })
+        ''')
         adc r4, @
         """, mr)
         assert mr['target'].address == 0x8000
+
+    def test_old_embedding_syntax(self):
+        self.program.add_code_block("0x1000: mov r5, r0")
+        mr = MatchResult()
+        with pytest.raises(SyntaxError):
+            self.program.find_first("""
+            % goto_after_next(${mov r5, r0})
+            """, mr)

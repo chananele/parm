@@ -60,16 +60,22 @@ class DefaultExtension(ExecutionExtensionBase):
 
     @injected_func
     def find_single(self, cursors: Iterable[Cursor], pattern):
+        pattern = self.create_pattern(pattern)
+
         return find_single(pattern, cursors, self.match_result)
 
     @injected_func
     def match_all(self, cursors: Iterable[Cursor], pattern, name=None, **kwargs):
+        pattern = self.create_pattern(pattern)
+
         ms = self.match_result.new_multi_scope(name)
         for c in cursors:
             mr = ms.new_scope()
             c.match(pattern, mr, **kwargs)
 
     def search(self, pattern, advance, **kwargs):
+        pattern = self.create_pattern(pattern)
+
         cursor = self.cursor
         mr = self.match_result
         while True:
@@ -119,6 +125,14 @@ class DefaultExtension(ExecutionExtensionBase):
 
     @injected_func
     def goto(self, location):
+        self.cursor = self.ptr(location)
+
+    @injected_func
+    def pat(self, pattern: str):
+        return self.create_pattern(pattern)
+
+    @injected_func
+    def ptr(self, location):
         if isinstance(location, str):
             try:
                 location = self.match_result[location]
@@ -126,8 +140,10 @@ class DefaultExtension(ExecutionExtensionBase):
                 location = self.program.find_symbol(location)
         if isinstance(location, Address):
             location = location.address
-        assert isinstance(location, int)
-        return self.program.create_cursor(location)
+        if isinstance(location, int):
+            location = self.program.create_cursor(location)
+        assert isinstance(location, Cursor)
+        return location
 
 
 class AnalysisExtension(ExecutionExtensionBase):

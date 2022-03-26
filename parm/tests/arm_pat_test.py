@@ -1,5 +1,8 @@
 from unittest import TestCase
 
+import lark.exceptions
+import pytest
+
 from parm import parsers
 from parm.api.parsing.arm_asm import *
 from parm.api.parsing.arm_pat import *
@@ -38,35 +41,73 @@ class ArmPatternTest(TestCase):
         pat = self._pt('test: bl @:test')
         assert pat == expected
 
-    def test_nested_patterns(self):
-        nested = BlockPat([CommandPat(InstructionPat(OpcodePat('MOV'), OperandsPat([
-            RegPat(Reg('R1')), ShiftedRegPat(RegPat(Reg('R2')))
-        ])))])
+    def test_python_pattern(self):
         expected = BlockPat([CommandPat(PythonCodeLine(
-            ['match_single(xrefs_to, ', nested, ')']
+            ["match_single(xrefs_to, 'MOV R1, R2')"]
         ))])
 
         pat = self._pt("""
-        % match_single(xrefs_to, ${ MOV R1, R2 })
+        % match_single(xrefs_to, 'MOV R1, R2')
         """)
         assert pat == expected
 
-    def test_not_nested_patterns(self):
-        self._pt("""
-        % print('hello')  # ${ bad }
+    def test_continued_python_pattern(self):
+        # Test line continuation using "\"
+        expected = BlockPat([CommandPat(PythonCodeLine(
+            ["a = [1, 2, \\\n          3]"]
+        ))])
+        pat = self._pt("""
+        % a = [1, 2, \\
+          3]
         """)
-        self._pt("""
-         % print('''${ bad }''')
+        assert pat == expected
+
+        # Only a newline may occur after a "\"
+        with pytest.raises(lark.exceptions.UnexpectedCharacters):
+            self._pt("""
+            % a = [1, 2, \\  # comment
+              3]
+            """)
+
+        # Test line continuation when in square brackets
+        expected = BlockPat([CommandPat(PythonCodeLine(
+            ["a = [1, 2,\n          3]"]
+        ))])
+        pat = self._pt("""
+        % a = [1, 2,
+          3]
         """)
-        self._pt('''
-        % print("""${ bad }""")
-        ''')
-        self._pt("""
-        % print('${ bad }')
+        assert pat == expected
+
+        # Without "\", the line is finished...
+        with pytest.raises(lark.exceptions.UnexpectedCharacters):
+            self._pt("""
+            % a = "test"
+              "test"
+            """)
+
+        # Test line continuation when in parentheses
+        expected = BlockPat([CommandPat(PythonCodeLine(
+            ['a = ("test"\n              "test")']
+        ))])
+        pat = self._pt("""
+            % a = ("test"
+              "test")
+            """)
+        assert pat == expected
+
+    def test_multiline_python_pattern(self):
+        expected = BlockPat([CommandPat(PythonCodeLines(
+            ["        p = pat('MOV R1, R2')", "        match_single(xrefs_to, p)"]
+        ))])
+
+        pat = self._pt("""
+        %%
+        p = pat('MOV R1, R2')
+        match_single(xrefs_to, p)
+        %%
         """)
-        self._pt('''
-        % print("${ bad }")
-        ''')
+        assert pat == expected
 
     def test_db(self):
         expected = BlockPat([DataSeq([DataByte(0x10)])])

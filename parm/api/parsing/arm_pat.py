@@ -547,8 +547,10 @@ class PythonCodeBase(CodeLineBase, ABC):
         stripped_lines = [line.lstrip() for line in lines]
         prefixes = [line[:-len(stripped)] for line, stripped in zip(lines, stripped_lines)]
         p = prefixes[0]
-        assert all(p == px for px in prefixes[1:])
-        return '\n'.join(stripped_lines)
+        assert all(px == ' ' * len(px) for px in prefixes)
+        assert all(len(p) <= len(px) for px in prefixes[1:])
+        lines = [line[len(p):] for line in lines]
+        return '\n'.join(lines)
 
     def _gen_code(self):
         pieces = []
@@ -785,29 +787,23 @@ class ArmPatternTransformer(Transformer):
 
     def python_code_line(self, parts):
         result = []
-        end = False
-        for p in parts:
-            assert not end
-            if isinstance(p, Token):
-                result.append(p.value)
+        for part in parts:
+            if isinstance(part, Token):
+                result.append(part.value)
                 continue
-            if p is None:
-                end = True
-                continue
-            assert isinstance(p, BlockPat)
-            result.append(p)
-        return result
+            assert isinstance(part, str)
+            result.append(part)
+        return ''.join(result)
 
-    def python_code_lines(self, parts):
-        flattened = []
-        for p in parts:
-            assert isinstance(p, list)
-            flattened.extend(p)
-        return flattened
+    def python_code_lines(self, lines):
+        for line in lines:
+            assert isinstance(line, str)
+        return lines
 
     def code_line(self, parts):
-        (code_parts, ) = parts
-        return CommandPat(PythonCodeLine(code_parts))
+        (code, ) = parts
+        assert isinstance(code, str)
+        return CommandPat(PythonCodeLine([code]))
 
     def code_lines(self, parts):
         (code_parts, ) = parts

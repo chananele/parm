@@ -147,12 +147,13 @@ instruction_pat: opcode_wildcard _WS operands_pat
 _COMMENT: /\/\/[^\n]*/
 
 PY_COMMENT: /#([^\n]*)/
-PY_STR: /"""([^"]|("(?!"")))*"""/ | /'''([^']|('(?!'')))*'''/ | /'(?!'')[^']*'/ | /"(?!"")[^"]*"/
-PY_CODE: /([^\n#'"\$]|(\$[^#'"\{]))+/
+PY_STR: /"""([^"]|("(?!"")))*"""/ | /'''([^']|('(?!'')))*'''/ | /'(?!'')[^'\n]*'/ | /"(?!"")[^"\n]*"/
+PY_CODE: /([^\n#'"\\\[\]\(\)])+/
+CODE_PIECE: (PY_CODE | PY_STR)+ ("\\" _NL (PY_CODE | PY_STR)+)* [PY_COMMENT]
 
-CODE_PIECE: ((PY_CODE | PY_STR)+ (PY_COMMENT)?) | PY_COMMENT
-
-python_code_line: CODE_PIECE [_WS] ("${" block_pat "}" [_WS] CODE_PIECE [_WS])* ["${" block_pat "}"]
+python_code_line: CODE_PIECE python_code_line*
+                | /\[/ (python_code_line | /\n/)* /\]/
+                | /\(/ (python_code_line | /\n/)* /\)/
 
 python_code_lines: python_code_line (_NL python_code_line)*
 
