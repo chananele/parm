@@ -146,7 +146,7 @@ class ArmPatternTest(TestCase):
 
         with pytest.raises(PatternValueMismatch):
             with mr.transact():
-                c.match(self.program.create_pattern('.dd 0x3412, 0x7856'))
+                c.match(self.program.create_pattern('.dd 0x3412, 0x7856'), mr)
 
     def test_data_qwords(self):
         self.program.add_data_block(0x1000, pack('<QQ', 0xDEAD, 0xBEEF))

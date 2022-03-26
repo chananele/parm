@@ -57,6 +57,7 @@ operands_pat: reg_pat [[_WS] "," [_WS] shifted_reg_pat]
             | reg_pat [_WS] "," [_WS] reg_pat [_WS] "," [_WS] shifted_reg_pat
             | reg_pat [_WS] "," [_WS] mem_single_pat
             | reg_pat [_WS] "," [_WS] mem_multi_pat
+            | mem_multi_pat
 
 MOV_PAT: MOV_LO [S_LO] "*"
        | MOV_HI [S_HI] "*"
@@ -102,6 +103,12 @@ MULTIPLY_PAT: "mul" [S_LO] "*"
 opcode_multiply_pat: OPCODE_MULTIPLY -> exact_multiply
                    | MULTIPLY_PAT capture_opt -> approx_multiply
 
+STACK_MEM_MULTI_PAT: /(push)|(pop)/ [S_LO] "*"
+                   | /(PUSH)|(POP)/ [S_HI] "*"
+
+opcode_stack_mem_multi_pat: OPCODE_STACK_MEM_MULTI -> exact_stack_mem_multi
+                          | STACK_MEM_MULTI_PAT capture_opt -> approx_stack_mem_multi
+
 SHIFT_PAT: SHIFT_OP_LO [S_LO] "*"
          | SHIFT_OP_HI [S_HI] "*"
 SHIFT_UNARY_PAT: SHIFT_UNARY_OP_LO [S_LO] "*"
@@ -131,6 +138,8 @@ shift_unary_operands_pat: two_reg_operands_pat
 branch_rel_operands_pat: ["#"] address_pat
 branch_ind_operands_pat: reg_pat
 
+stack_mem_multi_operands_pat: mem_multi_pat
+
 opcode_wildcard: "*" capture_opt
 
 instruction_pat: opcode_wildcard _WS operands_pat
@@ -143,6 +152,7 @@ instruction_pat: opcode_wildcard _WS operands_pat
                | opcode_multiply_pat _WS multiply_operands_pat
                | opcode_shift_pat _WS shift_operands_pat
                | opcode_shift_unary_pat _WS shift_unary_operands_pat
+               | opcode_stack_mem_multi_pat _WS stack_mem_multi_operands_pat
 
 _COMMENT: /\/\/[^\n]*/
 
@@ -230,6 +240,7 @@ block_pat: [_AWS] [_ANCHOR [_WS]] line_pat (_NL [_AWS] line_pat)* [_AWS] -> simp
 %import .arm_asm.OPCODE_COMPARE
 
 %import .arm_asm.OPCODE_MULTIPLY
+%import .arm_asm.OPCODE_STACK_MEM_MULTI
 
 %import .arm_asm.SHIFT_OP_LO
 %import .arm_asm.SHIFT_OP_HI

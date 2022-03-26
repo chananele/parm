@@ -1,7 +1,6 @@
 from typing import List
 
 from parm.api.cursor import Cursor
-from parm.api.common import default_match_result
 from parm.api.exceptions import InvalidAccess
 from parm.api.match_result import MatchResult
 from parm.api.parsing.arm_asm import Instruction, ArmTransformer, Address, Block
@@ -133,8 +132,7 @@ class SnippetCursor(Cursor):
         assert adr is not None
         return adr.address
 
-    @default_match_result
-    def match(self, pattern, match_result: MatchResult, **kwargs) -> MatchResult:
+    def match(self, pattern, match_result: MatchResult, **kwargs):
         return pattern.match(self, self.program, match_result, **kwargs)
 
     def next(self):
@@ -213,13 +211,28 @@ class SnippetProgram(Program):
             raise InvalidAccess(f'Not enough data in block {block!s} to read {size} bytes!')
         return block.read_bytes(address, size)
 
-    def add_code_block(self, code_block):
+    def add_code_block(self, code_block, address=None):
         if isinstance(code_block, str):
             code_block = self._code_loader.load(code_block)
 
-        cursors = [
+        code_lines = list(code_block)
+        if not code_lines:
+            raise ValueError('No code lines given!')
+
+        first_line = code_lines[0]
+        first_address = first_line.address
+        if first_address is not None:
+            if address is not None:
+                if address != first_address:
+                    raise ValueError('Conflicting addresses for first cursor!')
+        else:
+            first_address = address
+
+        first_cursor = SnippetCursor(self, address=first_address, instruction=first_line.instruction)
+        cursors = [first_cursor]
+        cursors.extend([
             SnippetCursor(self, address=line.address, instruction=line.instruction)
-            for line in code_block]
+            for line in code_lines[1:]])
 
         for i in range(len(cursors) - 1):
             cursors[i + 1].set_prev(cursors[i])
@@ -238,6 +251,8 @@ class SnippetProgram(Program):
                 adr = adr.address
                 assert adr not in self._cursor_cache
                 self._cursor_cache[adr] = c
+
+        return first_cursor
 
     def get_instruction(self, address):
         return self.create_cursor(address).instruction

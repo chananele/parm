@@ -332,9 +332,13 @@ class WildcardMulti(WildcardBase):
 
     def consume(self, operands, _program: Program, match_result: MatchResult, complete):
         for i in range(len(operands) + 1):
-            with match_result.transact():
-                complete(operands[i:])
-                match_result[self.capture] = operands[:i]
+            try:
+                with match_result.transact():
+                    complete(operands[i:])
+                    match_result[self.capture] = operands[:i]
+                    return
+            except PatternMismatchException:
+                continue
         raise NoMatches()
 
 
@@ -733,6 +737,7 @@ class ArmPatternTransformer(Transformer):
     approx_multiply = _opcode_pat
     approx_shift = _opcode_pat
     approx_shift_unary = _opcode_pat
+    approx_stack_mem_multi = _opcode_pat
 
     def _exact_opcode(self, parts):
         (pat,) = parts
@@ -748,6 +753,7 @@ class ArmPatternTransformer(Transformer):
     exact_multiply = _exact_opcode
     exact_shift = _exact_opcode
     exact_shift_unary = _exact_opcode
+    exact_stack_mem_multi = _exact_opcode
 
     def instruction_line(self, parts):
         (instruction_pat,) = parts
@@ -828,6 +834,8 @@ class ArmPatternTransformer(Transformer):
     multiply_operands_pat = operands_pat
     shift_operands_pat = operands_pat
     shift_pat_operands_pat = operands_pat
+    shift_unary_operands_pat = operands_pat
+    stack_mem_multi_operands_pat = operands_pat
 
     def reg(self, parts):
         (name,) = parts

@@ -163,10 +163,19 @@ class RegList:
     def __repr__(self):
         return f'RegList({self.regs!r})'
 
+    def __len__(self):
+        return len(self.regs)
+
+    def __iter__(self):
+        return iter(self.regs)
+
     def __eq__(self, other):
         if not isinstance(other, RegList):
             return False
         return self.regs == other.regs
+
+    def __getitem__(self, item):
+        return self.regs[item]
 
     def __str__(self):
         ps = []
