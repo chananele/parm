@@ -324,3 +324,31 @@ class ArmPatternTest(TestCase):
             self.program.find_first("""
             % goto_after_next(${mov r5, r0})
             """, mr)
+
+    def test_goto(self):
+        self.program.add_code_block("""
+            0x2000: mov r0, r1
+                    mov r0, r2
+                    ldr r4, [r0]
+                    bl  0x1000
+            0x2010: mov r5, r0
+            """)
+        c = self.program.create_cursor(0x2000)
+
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+            mov r0, @
+            % goto(cursor.next().next())
+            bl  @:target
+        """)
+        c.match(pattern, match_result=mr)
+        assert mr['target'].address == 0x1000
+
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+            mov r0, @
+            % goto(0x2010)
+            mov @:reg, r0
+        """)
+        c.match(pattern, match_result=mr)
+        assert mr['reg'].name == 'r5'
