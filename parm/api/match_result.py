@@ -91,6 +91,12 @@ class MultiMatchResult(Transactable):
         self._scopes.push(scope)
         return scope
 
+    def to_obj(self):
+        return [v.to_obj() for v in self._scopes]
+
+    def to_json(self):
+        return obj_to_json(self.to_obj())
+
 
 class MatchResult(Transactable):
     def __init__(self, parent=None, transaction=None):
@@ -138,7 +144,7 @@ class MatchResult(Transactable):
         """
         :rtype: Mapping[_IndexType, MatchResult]
         """
-        return self._subs
+        return self._sub
 
     def declare_var(self, name):
         self[name] = DeclaredVar(self, name)
@@ -158,7 +164,8 @@ class MatchResult(Transactable):
         if key is None:
             return
 
-        assert isinstance(key, str)
+        if not isinstance(key, str):
+            raise ValueError(f"Key must be a string, got {key}!")
 
         try:
             existing = self[key]
@@ -248,3 +255,56 @@ class MatchResult(Transactable):
         if len(ss) == 0:
             raise NoMatches()
         self.merge_scope(ss[0])
+
+    @staticmethod
+    def _dict_filter(d):
+        r_map = {}
+        result = {}
+        for k, v in d.items():
+            assert isinstance(k, (int, str))
+            if v in r_map:
+                if isinstance(k, str):
+                    old_k = r_map[v]
+                    assert isinstance(old_k, int)
+                    del result[old_k]
+                    result[k] = v
+                    r_map[v] = k
+            else:
+                result[k] = v
+                r_map[v] = k
+        return result
+
+    def _sub_unique(self):
+        return self._dict_filter(self._sub)
+
+    def _subs_unique(self):
+        return self._dict_filter(self._subs)
+
+    def to_obj(self):
+        result = {}
+        result.update(self._results)
+
+        sub_match_objs = {k: v.to_obj() for k, v in self._sub_unique().items()}
+        if sub_match_objs:
+            result['sub_matches'] = sub_match_objs
+
+        sub_multi_match_objs = {k: v.to_obj() for k, v in self._subs_unique().items()}
+        if sub_multi_match_objs:
+            result['sub_multi_matches'] = sub_multi_match_objs
+
+        return result
+
+    def to_json(self):
+        return obj_to_json(self.to_obj())
+
+
+def obj_to_json(obj):
+    if isinstance(obj, (int, str)):
+        return obj
+    if isinstance(obj, list):
+        return [obj_to_json(e) for e in obj]
+    if isinstance(obj, dict):
+        return {str(k): obj_to_json(v) for k, v in obj.items()}
+    if hasattr(obj, 'to_json'):
+        return obj.to_json()
+    return str(obj)
