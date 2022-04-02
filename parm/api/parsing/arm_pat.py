@@ -4,6 +4,7 @@ from typing import List, Literal
 from fnmatch import fnmatch
 from functools import wraps
 from collections import OrderedDict
+from construct import ConstructError
 
 from lark import Transformer, Token
 
@@ -11,7 +12,7 @@ from parm.api.matchable import Matchable
 from parm.api.parsing import arm_asm
 from parm.api.parsing.utils import indent
 from parm.api.common import default_match_result
-from parm.api.exceptions import PatternMismatchException, OperandsExhausted
+from parm.api.exceptions import PatternMismatchException, OperandsExhausted, ConstructParsingException
 from parm.api.exceptions import PatternTypeMismatch, PatternValueMismatch, NoMatches, NotAllOperandsMatched
 from parm.api.match_result import MatchResult
 from parm.api.program import Program
@@ -604,6 +605,37 @@ class PythonMatchableGenerator(PythonCodeBase, CodeLineMatchableGenerator):
     pass
 
 
+class PythonDataObj(PythonCodeBase):
+    def __init__(self, code, obj_name=None):
+        assert isinstance(code, str)
+        super().__init__([code])
+        self.obj_name = obj_name
+
+    def __str__(self):
+        if self.obj_name is None:
+            return f".obj ${self.code}"
+        else:
+            return f".obj {self.obj_name}:{self.code}"
+
+    def match_logic(self, obj_type, cursor: Cursor, match_result: MatchResult):
+        try:
+            match_result[self.obj_name] = obj_type.parse_stream(cursor.create_stream())
+        except ConstructError as e:
+            raise ConstructParsingException(e)
+
+    def match_reverse(self, cursor: Cursor, program: Program, match_result: MatchResult, **kwargs) -> Cursor:
+        obj_type, _ = self.eval(cursor, program, match_result, **kwargs)
+        obj_size = obj_type.sizeof()
+        cursor = cursor.get_cursor_by_offset(-obj_size)
+        self.match_logic(obj_type, cursor, match_result)
+        return cursor
+
+    def match(self, cursor: Cursor, program: Program, match_result: MatchResult, **kwargs) -> Cursor:
+        obj_type, _ = self.eval(cursor, program, match_result, **kwargs)
+        self.match_logic(obj_type, cursor, match_result)
+        return cursor
+
+
 class SizedData(ContainerBase):
     @property
     def size(self):
@@ -682,6 +714,7 @@ qword_pat_array = data_pat_array(DataQword)
 
 
 def basic_array_type(array_type):
+    # noinspection PyUnusedLocal
     def func(self, parts):
         (pats,) = parts
         return array_type(pats)
@@ -696,6 +729,11 @@ class AnchoredLine:
 
 # noinspection PyMethodMayBeStatic
 class ArmPatternTransformer(Transformer):
+    def identifier(self, parts):
+        (name, ) = parts
+        assert isinstance(name, Token)
+        return name.value
+
     def matchable_code(self, parts):
         (code_parts, ) = parts
         return CommandPat(PythonMatchableGenerator(code_parts))
@@ -718,6 +756,26 @@ class ArmPatternTransformer(Transformer):
     dw = basic_array_type(word_pat_array)
     dd = basic_array_type(dword_pat_array)
     dq = basic_array_type(qword_pat_array)
+
+    def data_obj_type(self, parts):
+        (code, ) = parts
+        return code
+
+    def data_obj(self, parts):
+        (obj, ) = parts
+        assert isinstance(obj, PythonDataObj)
+        return obj
+
+    def anonymous_data_obj(self, parts):
+        (code, ) = parts
+        assert isinstance(code, str)
+        return PythonDataObj(code)
+
+    def named_data_obj(self, parts):
+        name, code = parts
+        assert isinstance(code, str)
+        assert isinstance(name, str)
+        return PythonDataObj(code, name)
 
     def data_line(self, parts):
         (pat, ) = parts

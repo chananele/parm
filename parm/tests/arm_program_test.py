@@ -1,8 +1,10 @@
 import pytest
 from unittest import TestCase
 from struct import pack
+from construct import Struct, Int16ul, Container, Const
 
 from parm.api.exceptions import TooManyMatches, CaptureCollision, PatternValueMismatch, InvalidAccess
+from parm.api.exceptions import ConstructParsingException
 from parm.api.match_result import MatchResult
 from parm.api.parsing.arm_asm import Reg
 from parm.programs import snippet
@@ -352,3 +354,46 @@ class ArmPatternTest(TestCase):
         """)
         c.match(pattern, match_result=mr)
         assert mr['reg'].name == 'r5'
+
+    def test_data_obj(self):
+        self.program.add_data_block(0x1000, pack('<IHHI', 0, 0xDEAD, 0xBEEF, 0xAABBCCDD))
+        mr = MatchResult()
+        pattern = self.program.create_pattern("""
+            .obj test:$obj_type
+        """)
+        self.program.create_cursor(0x1004).match(pattern, mr, obj_type=Struct(a=Int16ul, b=Int16ul))
+        test = mr['test']
+        assert isinstance(test, Container)
+        assert test['a'] == 0xDEAD and test['b'] == 0xBEEF
+
+        obj_type = Struct(x=Const(b'\xAD\xDE'), y=Int16ul)
+        pattern = self.program.create_pattern("""
+            .obj test:$obj_type
+          > .dd @:other
+        """)
+
+        with pytest.raises(InvalidAccess):
+            mr = MatchResult()
+            self.program.create_cursor(0x1000).match(pattern, mr, obj_type=obj_type)
+
+        with pytest.raises(ConstructParsingException):
+            mr = MatchResult()
+            self.program.create_cursor(0x1004).match(pattern, mr, obj_type=obj_type)
+
+        mr = MatchResult()
+        self.program.create_cursor(0x1008).match(pattern, mr, obj_type=obj_type)
+        assert mr['test']['y'] == 0xBEEF
+        assert mr['other'] == 0xAABBCCDD
+
+    def test_anonymous_data_obj(self):
+        self.program.add_data_block(0x1000, pack('<HHHH', 0xDEAD, 0, 0xBEEF, 0))
+        mr = MatchResult()
+        obj_type = Struct(a=Const(b'\xEF\xBE'), b=Int16ul)
+        pattern = self.program.create_pattern("""
+            .obj $obj_type
+        """)
+
+        with pytest.raises(ConstructParsingException):
+            self.program.create_cursor(0x1000).match(pattern, mr, obj_type=obj_type)
+
+        self.program.create_cursor(0x1004).match(pattern, mr, obj_type=obj_type)

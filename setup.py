@@ -11,6 +11,7 @@ setup(
         'pytest',
         'pyelftools',
         'capstone',
+        'construct',
     ],
     entry_points={
         'console_scripts': [

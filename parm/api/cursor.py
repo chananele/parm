@@ -17,6 +17,9 @@ class Cursor:
     def read_bytes(self, count) -> bytes:
         raise NotImplementedError()
 
+    def create_stream(self):
+        return self.program.create_stream(self)
+
     def get_cursor_by_offset(self, offset: int):
         """
 
@@ -26,7 +29,7 @@ class Cursor:
         """
         raise NotImplementedError()
 
-    def match(self, pattern, match_result: MatchResult = None, **kwargs):
+    def match(self, pattern, match_result: MatchResult, **kwargs):
         """
 
         :param pattern:

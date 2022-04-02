@@ -173,9 +173,15 @@ _DD: ".dd"
 _DQ: ".dq"
 _ASCII: ".ascii"
 _ASCIZ: ".asciz"
+_OBJ: ".obj"
 
 data_val_pat: NUM | wildcard_s
 data_val_pats: data_val_pat ([_WS] "," [_WS] data_val_pat)*
+
+data_obj_type: "$" python_code_line
+
+data_obj_pat: data_obj_type -> anonymous_data_obj
+            | identifier [_WS] ":" [_WS] data_obj_type -> named_data_obj
 
 data_pat: _DB _WS data_val_pats -> db
         | _DW _WS data_val_pats -> dw
@@ -183,6 +189,7 @@ data_pat: _DB _WS data_val_pats -> db
         | _DQ _WS data_val_pats -> dq
         | _ASCII _WS ESCAPED_STRING -> ascii
         | _ASCIZ _WS ESCAPED_STRING -> asciz
+        | _OBJ _WS data_obj_pat -> data_obj
 
 _MATCHABLE_CODE: "!"
 _MULTILINE_CODE: "%%"

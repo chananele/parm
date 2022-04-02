@@ -69,6 +69,9 @@ class Program:
     def create_pattern(self, pattern):
         raise NotImplementedError()
 
+    def create_stream(self, cursor):
+        raise NotImplementedError()
+
     def find_symbol(self, symbol_name) -> Cursor:
         raise UnresolvedSymbolException(symbol_name)
 

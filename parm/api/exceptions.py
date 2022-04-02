@@ -67,3 +67,8 @@ class NotAllOperandsMatched(PatternMismatchException):
 class OperandsExhausted(PatternMismatchException):
     def __init__(self, pattern):
         self.pattern = pattern
+
+
+class ConstructParsingException(PatternMismatchException):
+    def __init__(self, construct_error):
+        self.construct_error = construct_error

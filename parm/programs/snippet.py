@@ -172,6 +172,23 @@ class DataBlock:
         return result
 
 
+class BlockStream:
+    def __init__(self, block: DataBlock, address):
+        self.block = block
+        self.address = address
+
+    def read(self, n):
+        result = self.block.read_bytes(self.address, n)
+        self.address += len(result)
+        return result
+
+    def tell(self):
+        return self.address
+
+    def seek(self, address):
+        self.address = address
+
+
 class SnippetProgram(Program):
     def __init__(self, pattern_loader, code_loader, env=None):
         super().__init__(env)
@@ -277,6 +294,11 @@ class SnippetProgram(Program):
     @property
     def cursors(self) -> ReversibleIterable[Cursor]:
         return self._cursors
+
+    def create_stream(self, cursor: Cursor):
+        adr = cursor.address
+        address = adr.address
+        return BlockStream(self.find_block(address), address)
 
 
 class ArmPatternLoader:
