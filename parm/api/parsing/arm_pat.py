@@ -76,12 +76,12 @@ class OpcodePat:
     def __eq__(self, other):
         if not isinstance(other, OpcodePat):
             return False
-        return self.name == other.name and self.capture == other.capture
+        return self.name.lower() == other.name.lower() and self.capture == other.capture
 
     def match(self, opcode, _program: Program, match_result: MatchResult, **_kwargs):
         if not isinstance(opcode, str):
             raise PatternTypeMismatch(self.name, opcode)
-        if not fnmatch(opcode, self.name):
+        if not fnmatch(opcode.lower(), self.name.lower()):
             raise PatternValueMismatch(self.name, opcode)
         match_result[self.capture] = opcode
 

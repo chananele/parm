@@ -61,7 +61,6 @@ def find_all(pattern, cursors: Iterable[Cursor], match_result: MatchResult, **kw
                 pass
 
 
-@default_match_result
 def find_first(pattern, cursors: Iterable[Cursor], match_result: MatchResult, **kwargs) -> Cursor:
     for c in cursors:
         try:
