@@ -3,8 +3,10 @@ from parm.api.type_hints import ReversibleIterable
 
 from parm.api.env import Env
 from parm.api.match_result import MatchResult
-from parm.api.cursor import Cursor, NullCursor
+from parm.api.cursor import Cursor
+from parm.api.null_cursor import NullCursor
 from parm.api.common import find_all, find_first, find_single
+from parm.api.program_base import ProgramBase
 
 
 def _repeat(initial, func, count):
@@ -14,7 +16,7 @@ def _repeat(initial, func, count):
     return result
 
 
-class Program:
+class Program(ProgramBase):
     def __init__(self, env: Env = None):
         if env is None:
             env = Env.create_default_env()
@@ -65,7 +67,7 @@ class Program:
     def create_pattern(self, pattern):
         raise NotImplementedError()
 
-    def create_stream(self, cursor):
+    def create_data_stream(self, cursor):
         raise NotImplementedError()
 
     def find_symbol(self, symbol_name) -> Cursor:

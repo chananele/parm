@@ -1,7 +1,8 @@
 import inspect
 
+from parm.api.cursor import Cursor
 from parm.extensions.extension_registry import ExtensionRegistry
-from parm.extensions.execution_context import ExecutionContext
+from parm.api.execution_context import ExecutionContext
 from parm.extensions.injection_context import InjectionContext
 
 
@@ -85,11 +86,12 @@ class ExecutionExtensionBase(ExtensionBase):
                     self.injection_context.inject_global(name, method)
 
     @property
-    def cursor(self):
+    def cursor(self) -> Cursor:
         return self.execution_context.cursor
 
     @cursor.setter
-    def cursor(self, value):
+    def cursor(self, value: Cursor):
+        assert isinstance(value, Cursor)
         self.execution_context.cursor = value
 
     @property
