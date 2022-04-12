@@ -1,6 +1,7 @@
 from typing import List
 
 from parm.api.cursor import Cursor
+from parm.api.execution_context import ExecutionContext
 from parm.api.exceptions import InvalidAccess
 from parm.api.match_result import MatchResult
 from parm.api.parsing.arm_asm import Instruction, ArmTransformer, Address, Block
@@ -133,7 +134,8 @@ class SnippetCursor(Cursor):
         return adr.address
 
     def match(self, pattern, match_result: MatchResult, **kwargs):
-        return pattern.match(self, self.program, match_result, **kwargs)
+        ctx = ExecutionContext(self, match_result)
+        return pattern.match(ctx, **kwargs)
 
     def next(self):
         return self._next
@@ -295,7 +297,7 @@ class SnippetProgram(Program):
     def asm_cursors(self) -> ReversibleIterable[Cursor]:
         return self._asm_cursors
 
-    def create_stream(self, cursor: Cursor):
+    def create_data_stream(self, cursor: Cursor):
         adr = cursor.address
         address = adr.address
         return BlockStream(self.find_block(address), address)

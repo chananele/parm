@@ -1,10 +1,10 @@
-from typing import Iterable
+from typing import Iterable, Tuple
 
-from parm.api.cursor import Cursor
+from parm.api.execution_context import ExecutionContext
 from parm.api.common import find_single
-from parm.api.program import Program
-from parm.api.exceptions import PatternMismatchException
+from parm.api.cursor import Cursor
 from parm.api.match_result import MatchResult
+from parm.api.exceptions import PatternMismatchException
 from parm.api.matchable import Matchable
 from parm.api.parsing.arm_asm import Address
 
@@ -17,33 +17,33 @@ class InstructionSkipper(Matchable):
         self.ext = ext
         self.skip_count = skip_count
 
-    def match(self, cursor: Cursor, program: Program, match_result: MatchResult, **kwargs) -> Cursor:
-        assert cursor is self.ext.cursor
+    def match(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
+        assert ctx.cursor is self.ext.cursor
         n = self.skip_count
         for _ in range(n):
-            cursor = cursor.next()
-        return cursor
+            ctx = ctx.fork_next()
+        return ctx
 
-    def match_reverse(self, cursor: Cursor, program: Program, match_result: MatchResult, **kwargs) -> Cursor:
-        assert cursor is self.ext.cursor
+    def match_reverse(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
+        assert ctx.cursor is self.ext.cursor
         n = self.skip_count
         for _ in range(n):
-            cursor = cursor.prev()
-        return cursor
+            ctx = ctx.fork_prev()
+        return ctx
 
 
 class DefaultExtension(ExecutionExtensionBase):
 
     @magic_getter('match_result')
-    def get_match_result(self):
+    def get_match_result(self) -> MatchResult:
         return self.match_result
 
     @magic_getter('cursor')
-    def get_cursor(self):
+    def get_cursor(self) -> Cursor:
         return self.cursor
 
     @magic_setter('cursor')
-    def set_cursor(self, cursor):
+    def set_cursor(self, cursor: Cursor):
         self.cursor = cursor
 
     @injected_func
@@ -73,55 +73,55 @@ class DefaultExtension(ExecutionExtensionBase):
             mr = ms.new_scope()
             c.match(pattern, mr, **kwargs)
 
-    def search(self, pattern, advance, **kwargs):
+    def search(self, pattern, advance, **kwargs) -> Tuple[ExecutionContext, ExecutionContext]:
         pattern = self.create_pattern(pattern)
 
-        cursor = self.cursor
+        ctx = self.execution_context
         mr = self.match_result
         while True:
             try:
                 with mr.transact():
-                    matched = cursor
-                    cursor = cursor.match(pattern, mr, **kwargs)
-                    return matched, cursor
+                    pre = ctx
+                    post = pattern.match(ctx, **kwargs)
+                    return pre, post
             except PatternMismatchException:
-                cursor = advance(cursor)
+                ctx = advance(ctx)
 
     @injected_func
-    def find_next(self, pattern, **kwargs):
-        matched, cursor = self.search(pattern, lambda c: c.next(), **kwargs)
-        return matched
+    def find_next(self, pattern, **kwargs) -> ExecutionContext:
+        pre, post = self.search(pattern, lambda ctx: ctx.fork_next(), **kwargs)
+        return pre
 
     @injected_func
     def goto_next(self, pattern, **kwargs):
-        self.cursor = self.find_next(pattern, **kwargs)
+        self.cursor = self.find_next(pattern, **kwargs).cursor
 
     @injected_func
-    def find_after_next(self, pattern, **kwargs):
-        matched, cursor = self.search(pattern, lambda c: c.next(), **kwargs)
-        return cursor
+    def find_after_next(self, pattern, **kwargs) -> ExecutionContext:
+        pre, post = self.search(pattern, lambda ctx: ctx.fork_next(), **kwargs)
+        return post
 
     @injected_func
     def goto_after_next(self, pattern, **kwargs):
-        self.cursor = self.find_after_next(pattern, **kwargs)
+        self.cursor = self.find_after_next(pattern, **kwargs).cursor
 
     @injected_func
-    def find_prev(self, pattern, **kwargs):
-        matched, cursor = self.search(pattern, lambda c: c.prev(), **kwargs)
-        return matched
+    def find_prev(self, pattern, **kwargs) -> ExecutionContext:
+        pre, post = self.search(pattern, lambda ctx: ctx.fork_prev(), **kwargs)
+        return pre
 
     @injected_func
     def goto_prev(self, pattern, **kwargs):
-        self.cursor = self.find_prev(pattern, **kwargs)
+        self.cursor = self.find_prev(pattern, **kwargs).cursor
 
     @injected_func
-    def find_before_prev(self, pattern, **kwargs):
-        matched, cursor = self.search(pattern, lambda c: c.prev(), **kwargs)
-        return cursor
+    def find_before_prev(self, pattern, **kwargs) -> ExecutionContext:
+        pre, post = self.search(pattern, lambda ctx: ctx.fork_prev(), **kwargs)
+        return post
 
     @injected_func
     def goto_before_prev(self, pattern, **kwargs):
-        self.cursor = self.find_before_prev(pattern, **kwargs)
+        self.cursor = self.find_before_prev(pattern, **kwargs).cursor
 
     @injected_func
     def goto(self, location):

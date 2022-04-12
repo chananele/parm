@@ -1,11 +1,9 @@
-from parm.api.cursor import Cursor
-from parm.api.program import Program
-from parm.api.match_result import MatchResult
+from parm.api.execution_context import ExecutionContext
 
 
 class Matchable:
-    def match(self, cursor: Cursor, program: Program, match_result: MatchResult, **kwargs) -> Cursor:
+    def match(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
         raise NotImplementedError()
 
-    def match_reverse(self, cursor: Cursor, program: Program, match_result: MatchResult, **kwargs) -> Cursor:
+    def match_reverse(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
         raise NotImplementedError()
