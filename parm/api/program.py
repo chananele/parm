@@ -34,28 +34,28 @@ class Program:
         if isinstance(pattern, str):
             pattern = self.create_pattern(pattern)
 
-        return find_all(pattern, cursors=self.cursors, match_result=match_result)
+        return find_all(pattern, cursors=self.asm_cursors, match_result=match_result)
 
     @default_match_result
     def find_first(self, pattern, match_result: MatchResult):
         if isinstance(pattern, str):
             pattern = self.create_pattern(pattern)
 
-        return find_first(pattern, cursors=self.cursors, match_result=match_result)
+        return find_first(pattern, cursors=self.asm_cursors, match_result=match_result)
 
     @default_match_result
     def find_single(self, pattern, match_result: MatchResult):
         if isinstance(pattern, str):
             pattern = self.create_pattern(pattern)
 
-        return find_single(pattern, cursors=self.cursors, match_result=match_result)
+        return find_single(pattern, cursors=self.asm_cursors, match_result=match_result)
 
     @default_match_result
     def find_last(self, pattern, match_result):
         if isinstance(pattern, str):
             pattern = self.create_pattern(pattern)
 
-        return find_first(pattern, cursors=reversed(self.cursors), match_result=match_result)
+        return find_first(pattern, cursors=reversed(self.asm_cursors), match_result=match_result)
 
     def create_cursor(self, address) -> Cursor:
         raise NotImplementedError()
@@ -76,5 +76,5 @@ class Program:
         raise UnresolvedSymbolException(symbol_name)
 
     @property
-    def cursors(self) -> ReversibleIterable[Cursor]:
+    def asm_cursors(self) -> ReversibleIterable[Cursor]:
         raise NotImplementedError()

@@ -5,3 +5,5 @@ Currently, support is only planned for ARM assembly, although if this is a hit, 
 this will change.
 
 For usage examples, see [API.md](docs/API.md).
+
+This project ~~plagiarizes~~ draws much inspiration (and some code) from [fa](https://github.com/doronz88/fa). 

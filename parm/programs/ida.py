@@ -42,7 +42,7 @@ class IDAProgram(Program):
         raise NotImplementedError()
 
     @property
-    def cursors(self) -> ReversibleIterable[Cursor]:
+    def asm_cursors(self) -> ReversibleIterable[Cursor]:
         raise NotImplementedError()
 
 

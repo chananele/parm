@@ -117,7 +117,7 @@ class ArmPatternTest(TestCase):
         % cursor = find_single(candidates, 'MOVNE R0, R2').next()
         BL @:target
         """)
-        self.program.match(pattern, mr, candidates=self.program.cursors)
+        self.program.match(pattern, mr, candidates=self.program.asm_cursors)
         assert mr['target'].address == 0x10000
 
     def test_data_bytes(self):

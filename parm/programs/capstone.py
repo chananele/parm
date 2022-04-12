@@ -70,16 +70,16 @@ class CapstoneProgram(ArmSnippetProgram):
 
     def analyze(self, cursors=None):
         if cursors is None:
-            cursors = self._cursors
+            cursors = self._asm_cursors
         self._analyze(cursors)
 
-    def add_code_block(self, add_code_block):
-        before = len(self._cursors)
-        super().add_code_block(add_code_block)
-        after = len(self._cursors)
+    def add_code_block(self, add_code_block, address=None):
+        before = len(self._asm_cursors)
+        super().add_code_block(add_code_block, address=address)
+        after = len(self._asm_cursors)
 
         if self.auto_analyze:
-            self.analyze(self._cursors[before:after])
+            self.analyze(self._asm_cursors[before:after])
 
 
 def read_elf_text_section(binary: IO[bytes], size: int = None) -> Tuple[int, bytes]:

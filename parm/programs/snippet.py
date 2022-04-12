@@ -195,7 +195,7 @@ class SnippetProgram(Program):
         self._pattern_loader = pattern_loader
         self._code_loader = code_loader
 
-        self._cursors = []
+        self._asm_cursors = []
         self._cursor_cache = {}
         self._data_blocks = []  # type: List[DataBlock]
 
@@ -254,7 +254,7 @@ class SnippetProgram(Program):
         for i in range(len(cursors) - 1):
             cursors[i + 1].set_prev(cursors[i])
             cursors[i].set_next(cursors[i + 1])
-        self._cursors.extend(cursors)
+        self._asm_cursors.extend(cursors)
 
         term = cursors[-1]
         term.set_next(PostTermCursor(self, term, code_block.terminal))
@@ -292,8 +292,8 @@ class SnippetProgram(Program):
         return self._pattern_loader.load(pattern)
 
     @property
-    def cursors(self) -> ReversibleIterable[Cursor]:
-        return self._cursors
+    def asm_cursors(self) -> ReversibleIterable[Cursor]:
+        return self._asm_cursors
 
     def create_stream(self, cursor: Cursor):
         adr = cursor.address
