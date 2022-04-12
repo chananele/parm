@@ -191,6 +191,9 @@ data_pat: _DB _WS data_val_pats -> db
         | _ASCIZ _WS ESCAPED_STRING -> asciz
         | _OBJ _WS data_obj_pat -> data_obj
 
+skip_pat: "..." [[_WS] "{" [[_WS] NUM] [_WS] "," [[_WS] NUM] [_WS] "}"] -> skip_range
+        | "..." [_WS] "{" [_WS] NUM [_WS] "}" -> skip_exact
+
 _MATCHABLE_CODE: "!"
 _MULTILINE_CODE: "%%"
 _UNILINE_CODE: /%(?!%)/
@@ -201,6 +204,7 @@ command_pat: instruction_pat [_COMMENT] -> instruction_line
            | _MULTILINE_CODE [_WS] _NL python_code_lines _NL [_WS] _MULTILINE_CODE -> code_lines
            | _MATCHABLE_CODE [_WS] python_code_line -> matchable_code
            | data_pat [_COMMENT] -> data_line
+           | skip_pat [_COMMENT] -> skip_line
 
 line_pat: command_pat -> lone_command
         | line_address_pat [_WS] ":" [_WS] [_COMMENT] -> lone_address

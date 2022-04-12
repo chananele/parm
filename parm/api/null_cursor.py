@@ -1,5 +1,4 @@
 from parm.api.cursor import Cursor
-from parm.api.execution_context import ExecutionContext
 
 
 class NullCursor(Cursor):
@@ -24,5 +23,4 @@ class NullCursor(Cursor):
         raise NotImplementedError()
 
     def match(self, pattern, match_result, **kwargs):
-        ctx = ExecutionContext(self, match_result, self.program)
-        return pattern.match(ctx, **kwargs)
+        return pattern.match(self, match_result, **kwargs)

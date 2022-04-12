@@ -419,9 +419,13 @@ class AddressPat(ContainerBase):
     def __init__(self, value):
         super().__init__(value)
 
-    def match(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
+    def match(self, ctx: ExecutionContext, **kwargs):
         self.value.match(ctx.cursor.address, ctx, **kwargs)
-        return ctx
+        ctx.fork_next_line().match(**kwargs)
+
+    def match_reverse(self, ctx: ExecutionContext, **kwargs):
+        self.value.match_reverse(ctx.cursor.address, ctx, **kwargs)
+        ctx.fork_next_line().match(**kwargs)
 
     @_single_consumer
     def consume(self, op, ctx: ExecutionContext):
@@ -452,20 +456,7 @@ class Label(ContainerBase):
 
 class BlockPat(BlockPattern):
     def __init__(self, lines, anchor_index=0):
-        self._lines = lines
-        self._anchor_index = anchor_index
-
-    @property
-    def lines(self):
-        return self._lines
-
-    @property
-    def anchor_index(self):
-        return self._anchor_index
-
-    @anchor_index.setter
-    def anchor_index(self, value):
-        self._anchor_index = value
+        super().__init__(lines, anchor_index)
 
     def __repr__(self):
         if self.anchor_index == 0:
@@ -509,17 +500,21 @@ class InstructionPat(Matchable):
 
     def match_logic(self, ctx: ExecutionContext, **kwargs):
         inst = ctx.cursor.instruction
+        if inst is None:
+            raise PatternValueMismatch(self, ctx.cursor)
         self.opcode_pat.match(inst.opcode, ctx, **kwargs)
         self.operand_pats.match(inst.operands, ctx, **kwargs)
 
-    def match(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
+    def match(self, ctx: ExecutionContext, **kwargs):
         self.match_logic(ctx, **kwargs)
-        return ctx.fork_next()
+        next_ctx = ctx.fork_next_line().fork_next_instruction()
+        next_ctx.match(**kwargs)
 
-    def match_reverse(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
-        ctx = ctx.fork_prev()
+    def match_reverse(self, ctx: ExecutionContext, **kwargs):
+        ctx = ctx.fork_prev_instruction()
         self.match_logic(ctx, **kwargs)
-        return ctx
+        next_ctx = ctx.fork_next_line()
+        next_ctx.match(**kwargs)
 
 
 class PythonCodeBase(CodeLineBase, ABC):
@@ -620,18 +615,21 @@ class PythonDataObj(PythonCodeBase):
         except ConstructError as e:
             raise ConstructParsingException(e)
 
-    def match_reverse(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
+    def match_reverse(self, ctx: ExecutionContext, **kwargs):
         obj_type, _ = self.eval(ctx, **kwargs)
         obj_size = obj_type.sizeof()
-        ctx = ctx.fork_offset(-obj_size)
-        self.match_logic(obj_type, ctx)
-        return ctx
+        next_ctx = ctx.fork_next_line()
+        next_ctx.cursor = ctx.cursor.get_cursor_by_offset(-obj_size)
+        self.match_logic(obj_type, next_ctx)
+        next_ctx.match(**kwargs)
 
-    def match(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
+    def match(self, ctx: ExecutionContext, **kwargs):
         obj_type, _ = self.eval(ctx, **kwargs)
         obj_size = obj_type.sizeof()
         self.match_logic(obj_type, ctx)
-        return ctx.fork_offset(obj_size)
+        next_ctx = ctx.fork_next_line()
+        next_ctx.cursor = ctx.cursor.get_cursor_by_offset(obj_size)
+        next_ctx.match(**kwargs)
 
 
 class SizedData(ContainerBase):
@@ -688,17 +686,17 @@ class DataQword(SizedData):
 
 
 class DataSeq(ContainerBase):
-    def match(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
+    def match(self, ctx: ExecutionContext, **kwargs):
         seq = self.value  # type: List[SizedData]
         for p in seq:
             ctx = p.match(ctx, **kwargs)
-        return ctx
+        ctx.fork_next_line().match(**kwargs)
 
-    def match_reverse(self, ctx: ExecutionContext, **kwargs) -> ExecutionContext:
+    def match_reverse(self, ctx: ExecutionContext, **kwargs):
         seq = self.value  # type: List[SizedData]
         for p in reversed(seq):
             ctx = p.match_reverse(ctx, **kwargs)
-        return ctx
+        ctx.fork_next_line().match(**kwargs)
 
 
 def data_pat_array(data_type):
@@ -725,8 +723,72 @@ class AnchoredLine:
         self.line = line
 
 
+class ExactSkipPat:
+    def __init__(self, skip_count):
+        self.skip_count = skip_count
+
+    def match_logic(self, advance, ctx: ExecutionContext, **kwargs):
+        next_ctx = ctx.fork_next_line()
+        for i in range(self.skip_count):
+            next_ctx = advance(next_ctx)
+        next_ctx.match(**kwargs)
+
+    def match(self, ctx: ExecutionContext, **kwargs):
+        return self.match_logic(lambda x: x.fork_next_instruction(), ctx, **kwargs)
+
+    def match_reverse(self, ctx: ExecutionContext, **kwargs):
+        return self.match_logic(lambda x: x.fork_prev_instruction(), ctx, **kwargs)
+
+
+class SkipPat:
+    def __init__(self, min_skip=None, max_skip=None):
+        self.min_skip = min_skip
+        self.max_skip = max_skip
+
+    @classmethod
+    def create(cls, min_skip, max_skip):
+        if min_skip is not None and max_skip is not None and min_skip == max_skip:
+            return ExactSkipPat(min_skip)
+        return cls(min_skip, max_skip)
+
+    def match_logic(self, advance, ctx: ExecutionContext, **kwargs):
+        mr = ctx.match_result
+        next_ctx = ctx.fork_next_line()
+        skip_ix = 0
+        while True:
+            if self.max_skip is not None and skip_ix > self.max_skip:
+                raise PatternValueMismatch(self, ctx.cursor)
+
+            if self.min_skip is None or skip_ix >= self.min_skip:
+                try:
+                    with mr.transact():
+                        next_ctx.match(**kwargs)
+                    return
+                except PatternMismatchException:
+                    pass
+
+            skip_ix += 1
+            next_ctx = advance(next_ctx)
+
+    def match(self, ctx: ExecutionContext, **kwargs):
+        return self.match_logic(lambda x: x.fork_next_instruction(), ctx, **kwargs)
+
+    def match_reverse(self, ctx: ExecutionContext, **kwargs):
+        return self.match_logic(lambda x: x.fork_prev_instruction(), ctx, **kwargs)
+
+
 # noinspection PyMethodMayBeStatic
 class ArmPatternTransformer(Transformer):
+    def skip_exact(self, parts):
+        (count, ) = parts
+        assert isinstance(count, Token)
+        val = int(count.value, 0)
+        return ExactSkipPat(val)
+
+    def skip_range(self, parts):
+        start, end = map(lambda x: int(x.value, 0) if x is not None else None, parts)
+        return SkipPat.create(start, end)
+
     def identifier(self, parts):
         (name, ) = parts
         assert isinstance(name, Token)
@@ -776,6 +838,10 @@ class ArmPatternTransformer(Transformer):
         return PythonDataObj(code, name)
 
     def data_line(self, parts):
+        (pat, ) = parts
+        return pat
+
+    def skip_line(self, parts):
         (pat, ) = parts
         return pat
 

@@ -19,12 +19,14 @@ class ArmPatternTest(TestCase):
         self.program.add_code_block('0x2000: blxeq r0')
         pattern = self.program.create_pattern('test: blx*:opcode r0')
         mr = MatchResult()
+        self.program.create_cursor(0x2000).match(pattern, mr)
+        print(mr.to_obj())
         result = list(self.program.find_all(pattern, match_result=mr))
 
         ms = mr.subs[0]
-        assert ms[0]['opcode'] == 'blxeq'
         assert ms[0]['test'].address == 0x2000
-        assert(len(result)) == 1
+        assert ms[0]['opcode'] == 'blxeq'
+        assert len(result) == 1
 
     def test_find_single(self):
         self.program.add_code_block("""
@@ -283,7 +285,7 @@ class ArmPatternTest(TestCase):
         self.program.create_cursor(0x1000).match(pattern, match_result=mr)
         assert mr['target'].address == 0x2000
 
-    def test_goto_after_next(self):
+    def test_variable_skip(self):
         self.program.add_code_block("""
         0x1000: mov   r5, r0
                 mov   r3, r0
@@ -301,20 +303,18 @@ class ArmPatternTest(TestCase):
         mr = MatchResult()
         self.program.find_first("""
         mov @:reg, r0
-        % goto_after_next('''
-            mov r0, @:reg
-            bleq @:target
-        ''')
+        ...
+        mov r0, @:reg
+        bleq @:target
         """, mr)
         assert mr['target'].address == 0x2000
 
         mr = MatchResult()
         self.program.find_first("""
         mov @:reg, r0
-        % goto_after_next('''
-            mov r0, @:reg
-            bleq @:target
-        ''')
+        ...
+        mov r0, @:reg
+        bleq @:target
         adc r4, @
         """, mr)
         assert mr['target'].address == 0x8000
@@ -397,3 +397,90 @@ class ArmPatternTest(TestCase):
             self.program.create_cursor(0x1000).match(pattern, mr, obj_type=obj_type)
 
         self.program.create_cursor(0x1004).match(pattern, mr, obj_type=obj_type)
+
+    def test_exact_skip(self):
+        self.program.add_code_block("""
+        0x1000: mov   r5, r0
+                mov   r3, r0
+                blxeq r1
+                mov   r0, r5
+        """)
+
+        pattern = self.program.create_pattern("""
+            mov @:reg, r0
+            ... {1}
+            mov r0, @:reg
+        """)
+
+        mr = MatchResult()
+        with pytest.raises(PatternValueMismatch):
+            self.program.create_cursor(0x1000).match(pattern, mr)
+
+        pattern = self.program.create_pattern("""
+            mov @:reg, r0
+            ... {2}
+            mov r0, @:reg
+        """)
+
+        mr = MatchResult()
+        self.program.create_cursor(0x1000).match(pattern, mr)
+        assert mr['reg'].name == 'r5'
+
+    def test_unmatched_variable_skip(self):
+        self.program.add_code_block("""
+        0x1000: mov   r5, r0
+                mov   r3, r0
+                blxeq r1
+                mov   r0, r4
+        """)
+
+        pattern = self.program.create_pattern("""
+            mov @:reg, r0
+            ...
+            mov r0, @:reg
+        """)
+
+        mr = MatchResult()
+        with pytest.raises(InvalidAccess):
+            self.program.create_cursor(0x1000).match(pattern, mr)
+
+    def test_reverse_variable_skip(self):
+        self.program.add_code_block("""
+            0x1000: mov   r5, r0
+            0x1004: mov   r3, r0
+            0x1008: blxeq r1
+            0x100C: mov   r0, r5
+            0x1010: mov   r3, r4
+            """)
+
+        # NOTE: The order here makes a difference - this logic will only work when the forward search is
+        # performed first, otherwise `reg` will capture "r3", not "r5"
+
+        pattern = self.program.create_pattern("""
+            mov @:reg, r0
+            ...
+            mov r0, @:reg
+          > mov r3, r4
+        """)
+
+        mr = MatchResult()
+        self.program.create_cursor(0x1010).match(pattern, mr)
+
+    def test_ranged_skip(self):
+        self.program.add_code_block("""
+            0x1000: mov   r5, r0
+            0x1004: mov   r3, r0
+            0x1008: blxeq r1
+            0x100C: blxeq r2
+            0x1010: mov   r0, r5
+            """)
+
+        pattern = self.program.create_pattern("""
+            mov @:reg, r0
+            ... {, 2}
+            blxeq @:target
+            mov r0, @:reg
+        """)
+
+        mr = MatchResult()
+        self.program.create_cursor(0x1000).match(pattern, mr)
