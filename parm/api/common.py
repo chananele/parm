@@ -48,7 +48,6 @@ default_match_result = default_initialize('match_result', MatchResult)
 default_env = default_initialize('env', Env.create_default_env)
 
 
-@default_match_result
 def find_all(pattern, cursors: Iterable[Cursor], match_result: MatchResult, **kwargs) -> Iterable[Cursor]:
     ms = match_result.new_multi_scope()
     for c in cursors:
@@ -74,7 +73,6 @@ def find_first(pattern, cursors: Iterable[Cursor], match_result: MatchResult, **
     raise NoMatches()
 
 
-@default_match_result
 def find_single(pattern, cursors: Iterable[Cursor], match_result: MatchResult, **kwargs) -> Cursor:
     ms = match_result.new_temp_multi_scope()
     match = None

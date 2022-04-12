@@ -276,7 +276,7 @@ class ArmPatternTest(TestCase):
         mov @:reg, r0
         % goto_next('''
             mov r0, @:reg
-            bleq @:target 
+            bleq @:target
         ''')
         """)
         mr = MatchResult()
@@ -303,7 +303,7 @@ class ArmPatternTest(TestCase):
         mov @:reg, r0
         % goto_after_next('''
             mov r0, @:reg
-            bleq @:target 
+            bleq @:target
         ''')
         """, mr)
         assert mr['target'].address == 0x2000
@@ -311,9 +311,9 @@ class ArmPatternTest(TestCase):
         mr = MatchResult()
         self.program.find_first("""
         mov @:reg, r0
-        % goto_after_next(''' 
+        % goto_after_next('''
             mov r0, @:reg
-            bleq @:target 
+            bleq @:target
         ''')
         adc r4, @
         """, mr)

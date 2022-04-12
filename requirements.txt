@@ -1,0 +1,8 @@
+chainmap==1.0.3
+construct==2.10.68
+lark==1.1.1
+pyelftools==0.28
+pytest==7.0.1
+setuptools==41.2.0
+capstone==4.0.2
+typing==3.7.4.3

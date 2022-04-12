@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Mapping, Union, List, Iterable
 from contextlib import contextmanager
 
@@ -133,17 +135,11 @@ class MatchResult(Transactable):
             yield
 
     @property
-    def subs(self):
-        """
-        :rtype: Mapping[_IndexType, List[MatchResult]]
-        """
+    def subs(self) -> Mapping[_IndexType, List[MatchResult]]:
         return self._subs
 
     @property
-    def sub(self):
-        """
-        :rtype: Mapping[_IndexType, MatchResult]
-        """
+    def sub(self) -> Mapping[_IndexType, MatchResult]:
         return self._sub
 
     def declare_var(self, name):

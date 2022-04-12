@@ -85,7 +85,7 @@ class CapstoneProgram(ArmSnippetProgram):
 def read_elf_text_section(binary: IO[bytes], size: int = None) -> Tuple[int, bytes]:
     """
     Read a requested number of bytes from the text section of a given elf file.
-    
+
 
     :param binary: An open elf file
     :param size: The number of bytes to read
@@ -130,7 +130,7 @@ def perform_disassembly(offset, ops, arch, mode):
 def disassemble_elf(path: Path, arch: str, mode: int):
     with path.open('rb') as bf:
         # TODO: In case of an elf maybe perform relocations and resolve symbols...
-        assert is_elf_file(bf)
+        assert is_elf_file(bf), f'File starts with {bf.read(0x10)!r}'
         offset, ops = read_elf_text_section(bf)
     return perform_disassembly(offset, ops, arch, mode)
 
