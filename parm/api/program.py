@@ -4,7 +4,7 @@ from parm.api.type_hints import ReversibleIterable
 from parm.api.env import Env
 from parm.api.match_result import MatchResult
 from parm.api.cursor import Cursor, NullCursor
-from parm.api.common import find_all, find_first, find_single, default_match_result
+from parm.api.common import find_all, find_first, find_single
 
 
 def _repeat(initial, func, count):
@@ -29,28 +29,24 @@ class Program:
         from parm.extensions.default_extensions import DefaultExtension
         self.register_extension_type(DefaultExtension)
 
-    @default_match_result
     def find_all(self, pattern, match_result: MatchResult):
         if isinstance(pattern, str):
             pattern = self.create_pattern(pattern)
 
         return find_all(pattern, cursors=self.asm_cursors, match_result=match_result)
 
-    @default_match_result
     def find_first(self, pattern, match_result: MatchResult):
         if isinstance(pattern, str):
             pattern = self.create_pattern(pattern)
 
         return find_first(pattern, cursors=self.asm_cursors, match_result=match_result)
 
-    @default_match_result
     def find_single(self, pattern, match_result: MatchResult):
         if isinstance(pattern, str):
             pattern = self.create_pattern(pattern)
 
         return find_single(pattern, cursors=self.asm_cursors, match_result=match_result)
 
-    @default_match_result
     def find_last(self, pattern, match_result):
         if isinstance(pattern, str):
             pattern = self.create_pattern(pattern)
