@@ -126,7 +126,10 @@ class ArmPatternTest(TestCase):
           > .dw 0x200
         """)
         assert pat != block
+
         block.anchor_index = 1
+        block.relink_lines()
+
         assert pat == block
 
     def test_match_mov(self):

@@ -1,7 +1,6 @@
 from typing import List
 
 from parm.api.cursor import Cursor
-from parm.api.execution_context import ExecutionContext
 from parm.api.exceptions import InvalidAccess
 from parm.api.match_result import MatchResult
 from parm.api.parsing.arm_asm import Instruction, ArmTransformer, Address, Block
@@ -134,8 +133,7 @@ class SnippetCursor(Cursor):
         return adr.address
 
     def match(self, pattern, match_result: MatchResult, **kwargs):
-        ctx = ExecutionContext(self, match_result)
-        return pattern.match(ctx, **kwargs)
+        return pattern.match(self, match_result, **kwargs)
 
     def next(self):
         return self._next
