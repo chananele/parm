@@ -1,5 +1,7 @@
 # PARM
 
+[![CI](https://github.com/chananele/parm/actions/workflows/ci.yml/badge.svg)](https://github.com/chananele/parm/actions/workflows/ci.yml)
+
 A package meant to provide a solution for auto-analysis of software/firmware.
 Currently, support is only planned for ARM assembly, although if this is a hit, maybe 
 this will change.
