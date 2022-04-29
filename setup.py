@@ -13,6 +13,8 @@ setup(
         'pyelftools',
         'capstone',
         'construct',
+        'pyyaml',
+        'pydantic',
     ],
     entry_points={
         'console_scripts': [

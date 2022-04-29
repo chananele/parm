@@ -1,0 +1,8 @@
+---
+name: sig_file_test
+exports:
+  - test
+method: find_single
+pattern: |
+  test: bne #0x1043c
+...
