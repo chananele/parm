@@ -17,6 +17,8 @@ setup(
     entry_points={
         'console_scripts': [
             'parm_cli=parm.tests.cli:main',
+            'iparm=parm.envs.ida.cli:cli',
+            'cparm=parm.envs.capstone.cli:cli',
         ]
     }
 )
