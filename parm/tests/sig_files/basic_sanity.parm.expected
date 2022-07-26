@@ -1,8 +1,4 @@
----
 name: basic_sanity
 result: pass
 matches:
-  test: 0x10458
-...
-
-
+  test: 66648

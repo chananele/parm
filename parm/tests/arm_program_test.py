@@ -21,9 +21,9 @@ class ArmPatternTest(TestCase):
         mr = MatchResult()
         self.program.create_cursor(0x2000).match(pattern, mr)
         print(mr.to_obj())
-        result = list(self.program.find_all(pattern, match_result=mr))
+        result = list(self.program.find_all(pattern, match_result=mr, scope_name='x'))
 
-        ms = mr.subs[0]
+        ms = mr.subs['x']
         assert ms[0]['test'].address == 0x2000
         assert ms[0]['opcode'] == 'blxeq'
         assert len(result) == 1

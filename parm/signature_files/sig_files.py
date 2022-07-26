@@ -27,6 +27,26 @@ class SignatureResult(pydantic.BaseModel):
     matches: Dict[str, int] = {}
 
 
+def signature_result_representer(dumper: yaml.Dumper, data: SignatureResult):
+    result_dict = {}
+    if data.name:
+        result_dict['name'] = data.name
+    result_dict['result'] = data.result
+    if data.errors:
+        result_dict['errors'] = data.errors
+    if data.matches:
+        result_dict['matches'] = data.matches
+    return dumper.represent_data(result_dict)
+
+
+class CustomDumper(yaml.SafeDumper):
+    def increase_indent(self, flow=False, indentless=False):
+        return super().increase_indent(flow, False)
+
+
+CustomDumper.add_representer(SignatureResult, signature_result_representer)
+
+
 def parse_signature_document(doc):
     try:
         return Signature(**doc)
@@ -176,39 +196,31 @@ class MatchingCtx:
         self.add_signature_error(signature, reason)
 
 
-def format_signature_results(signature, ctx: MatchingCtx):
-    lines = []
-    if signature.name:
-        lines.append(f'name: {signature.name}')
-
+def _get_signature_result(signature, ctx: MatchingCtx):
     if signature in ctx.failed_signatures:
-        result_line = 'result: failure'
+        return 'failure'
     elif signature in ctx.passed_signatures:
-        result_line = 'result: pass'
+        return 'pass'
     else:
         assert signature in ctx.not_run_signatures
-        result_line = 'result: not run'
+        return 'not run'
 
-    lines.append(result_line)
-    errors = ctx.error_map.get(signature, [])
-    if errors:
-        lines.append('errors:')
-        for error in errors:
-            lines.append(f'  - {error}')
 
-    match_lines = []
+def create_signature_result(signature, ctx: MatchingCtx):
+    matches = {}
     for exp in signature.exports:
         try:
             result = ctx.match_results[exp]
         except KeyError:
             continue
-        match_lines.append(f'  {exp}: {result}')
+        matches[exp] = int(result)
 
-    if match_lines:
-        lines.append('matches:')
-        lines.extend(match_lines)
-
-    return '---\n{}\n...\n\n'.format('\n'.join(lines))
+    return SignatureResult(
+        name=signature.name,
+        result=_get_signature_result(signature, ctx),
+        errors=ctx.error_map.get(signature, []),
+        matches=matches
+    )
 
 
 class SignatureMatchingGroup:
@@ -221,9 +233,11 @@ class SignatureMatchingGroup:
             ctx.add_signature(sig)
 
     def save_matches(self, ctx):
+        srs = []
+        for sig in self.signatures:
+            srs.append(create_signature_result(sig, ctx))
         with open(self.match_result_path, 'w') as dst:
-            for sig in self.signatures:
-                print(format_signature_results(sig, ctx), file=dst)
+            yaml.dump_all(srs, sort_keys=False, stream=dst, Dumper=CustomDumper)
 
 
 def find_all_signature_files(path):
@@ -308,4 +322,3 @@ def load_signature_results(sig_results):
             assert result.name not in results
             results[result.name] = result
     return results
-

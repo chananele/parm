@@ -31,11 +31,11 @@ class Program(ProgramBase):
         from parm.extensions.default_extensions import DefaultExtension
         self.register_extension_type(DefaultExtension)
 
-    def find_all(self, pattern, match_result: MatchResult):
+    def find_all(self, pattern, match_result: MatchResult, scope_name=None):
         if isinstance(pattern, str):
             pattern = self.create_pattern(pattern)
 
-        return find_all(pattern, cursors=self.asm_cursors, match_result=match_result)
+        return find_all(pattern, cursors=self.asm_cursors, match_result=match_result, scope_name=scope_name)
 
     def find_first(self, pattern, match_result: MatchResult):
         if isinstance(pattern, str):

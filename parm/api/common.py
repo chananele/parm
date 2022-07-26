@@ -2,6 +2,7 @@ from typing import Iterable
 from functools import wraps
 
 from inspect import unwrap
+
 try:
     # Python 3
     from inspect import getfullargspec
@@ -48,8 +49,13 @@ default_match_result = default_initialize('match_result', MatchResult)
 default_env = default_initialize('env', Env.create_default_env)
 
 
-def find_all(pattern, cursors: Iterable[Cursor], match_result: MatchResult, **kwargs) -> Iterable[Cursor]:
-    ms = match_result.new_multi_scope()
+def find_all(
+        pattern,
+        cursors: Iterable[Cursor],
+        match_result: MatchResult,
+        scope_name=None,
+        **kwargs) -> Iterable[Cursor]:
+    ms = match_result.new_multi_scope(name=scope_name)
     for c in cursors:
         scope = ms.new_scope()
         with scope.transact():

@@ -8,17 +8,19 @@ The APIs are still **very much** a work in progress, and subject to change.
 The following example shows how to match a pattern at a given address.
 
 ```python
+from parm.api.match_result import MatchResult
 from parm.programs.ida import idapython_create_program
 
 prg = idapython_create_program()
+mr = MatchResult()
 
 # Match a pattern at a specified address
 cursor = prg.create_cursor(0x1000)
-result = cursor.match("""
+cursor.match("""
     ldr @:reg, [r1]
     mov r0, #5
-""")
-print(f'Reg: {result["reg"]}')
+""", mr)
+print(f'Reg: {mr["reg"]}')
 ```
 
 #### Program Wide Search
@@ -27,28 +29,32 @@ In the following example, a very simple pattern is used to try and
 find all function prologues in a program.
 
 ```python
+from parm.api.match_result import MatchResult
 from parm.programs.ida import idapython_create_program
 
 prg = idapython_create_program()
+mr = MatchResult()
 
-results = prg.find_all("""
+prg.find_all("""
 func_start:
     push {*, lr}
-""")
+""", mr, scope_name='prologues')
+results = mr.subs['prologues']
 print('Funcs:', [m['func_start'] for m in results])
 ```
 
 #### Code Patterns
 The real power of `parm` comes from its extension model, called "code patterns".
 Code patterns are just pieces of code (usually one-liners) interspersed in 
-regular patterns. Code patterns are called using the `!code_pattern` syntax.
+regular patterns. Code patterns are called using the `%code_pattern` or `!code_pattern` syntax.
 
 As mentioned, although it may not look it, the code patterns are in fact 
 pure python code.
-Code patterns are called from the current matching context, and must
-return either a cursor or an iterator of cursors.
-If a code pattern returns `None`, it is treated as though it returned
-its input.
+Code patterns are called from the current matching context.
+The code pattern may modify the current cursor, which will affect the
+rest fo the pattern.
+If the current cursor is not modified, the next pattern will be matched
+against the same cursor.
 
 Aside from that, code patterns may do anything - they are just regular 
 python code!

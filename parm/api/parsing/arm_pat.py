@@ -448,6 +448,9 @@ class Address:
         if address.address != self.address:
             raise PatternValueMismatch(self.address, address)
 
+    def __int__(self):
+        return self.address
+
 
 class Label(ContainerBase):
     def match(self, address, ctx: ExecutionContext, **_kwargs):

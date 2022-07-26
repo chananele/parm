@@ -136,6 +136,9 @@ class Address:
     def __str__(self):
         return f'0x{self.address:X}'
 
+    def __int__(self):
+        return self.address
+
     def __repr__(self):
         return f'Address(0x{self.address:X})'
 

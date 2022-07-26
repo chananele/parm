@@ -1,16 +1,9 @@
----
 name: good_multi_p1
 result: pass
 matches:
-  after_main: 0x10404
-...
-
-
+  after_main: 66564
 ---
 name: good_multi_p2
 result: pass
 matches:
-  init_proc: 0x1027C
-...
-
-
+  init_proc: 66172

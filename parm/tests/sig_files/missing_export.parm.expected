@@ -1,10 +1,6 @@
----
 name: missing_export
 result: pass
 errors:
   - symbol [unexported] was not exported
 matches:
-  exported: 0x10458
-...
-
-
+  exported: 66648
