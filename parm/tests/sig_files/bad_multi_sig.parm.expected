@@ -1,0 +1,16 @@
+---
+name: bad_multi_p1
+result: failure
+errors:
+  - symbol [exp1] was not exported
+...
+
+
+---
+name: bad_multi_p2
+result: not run
+errors:
+  - unresolved import [exp1]
+...
+
+

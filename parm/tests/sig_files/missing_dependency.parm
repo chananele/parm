@@ -1,0 +1,10 @@
+---
+name: missing_dep
+imports:
+  - start
+exports:
+  - end
+method: find_single
+pattern: |
+  start: b @:end
+...

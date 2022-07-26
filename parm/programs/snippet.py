@@ -96,10 +96,10 @@ class SnippetCursor(Cursor):
     def __str__(self):
         parts = []
         if self._address:
-            parts.append(f'0x{self._address:X}: ')
+            parts.append(f'{self._address}: ')
         if self._instruction:
             parts.append(str(self._instruction))
-        return ''.join(parts)
+        return 'SnippetCursor[{}]'.format(''.join(parts))
 
     def read_bytes(self, count) -> bytes:
         return self._program.read_bytes(self.address_val, count)

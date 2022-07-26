@@ -62,6 +62,9 @@ class Program(ProgramBase):
         return NullCursor(self)
 
     def match(self, pattern, match_result, **kwargs) -> Cursor:
+        if isinstance(pattern, str):
+            pattern = self.create_pattern(pattern)
+
         return self.create_null_cursor().match(pattern, match_result, **kwargs)
 
     def create_pattern(self, pattern):

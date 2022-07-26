@@ -54,6 +54,9 @@ class PatternValueMismatch(PatternMismatchException):
         self.v1 = v1
         self.v2 = v2
 
+    def __str__(self):
+        return f'{self.v1}, {self.v2}'
+
 
 class NoMoreInstructions(PatternMismatchException):
     pass

@@ -8,7 +8,9 @@ SNIPPETS_DIR = Path(__file__).parent / "snippets"
 
 
 def _is_excluded_file(f: Path):
-    if f.suffix in ('.id0', '.id1', '.id2', '.nam', '.til'):
+    if f.is_dir():
+        return True
+    if f.suffix in ('.id0', '.id1', '.id2', '.nam', '.til', '.py'):
         return True
     return False
 
