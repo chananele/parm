@@ -1,6 +1,5 @@
 import os
 import yaml
-import argparse
 import pydantic
 from typing import Optional, List, Dict
 from pathlib import Path
@@ -163,7 +162,7 @@ def format_signature_results(signature, ctx: MatchingCtx):
         except KeyError:
             assert not passed
             continue
-        match_lines.append(f' - {result}')
+        match_lines.append(f'  {exp}: {result}')
 
     if match_lines:
         lines.append('matches:')
@@ -209,32 +208,24 @@ def load_signature_matching_groups(match_map):
     return groups
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('target')
-    parser.add_argument('-s', '--signatures', default='.')
-    parser.add_argument('-o', '--output', default=None)
-    args = parser.parse_args()
-
-    input_path = args.signatures
-    sig_file_paths = find_all_signature_files(input_path)
+def match_signature_files(target_path, signatures_path, output_path=None):
+    sig_file_paths = find_all_signature_files(signatures_path)
     assert sig_file_paths, 'No signatures found!'
 
-    output_path = args.output
     if output_path is None:
-        output_path = input_path
+        output_path = signatures_path
 
-    if not output_path.endswith('/') and not input_path.endswith('\\') and not os.path.isdir(output_path) and len(
+    if not output_path.endswith('/') and not signatures_path.endswith('\\') and not os.path.isdir(output_path) and len(
             sig_file_paths) == 1:
-        match_map = {input_path: output_path + '.match'}
+        match_map = {signatures_path: output_path}
     else:
         match_map = {}
         for path in sig_file_paths:
-            assert path.startswith(input_path) and path.endswith('.parm')
-            piece = path[len(input_path):] + '.match'
+            assert path.startswith(signatures_path) and path.endswith('.parm')
+            piece = path[len(signatures_path):] + '.match'
             match_map[path] = os.path.join(output_path, piece)
 
-    target = CapstoneProgram.load_arm_elf(Path(args.target))
+    target = CapstoneProgram.load_arm_elf(Path(target_path))
     groups = load_signature_matching_groups(match_map)
     match_ctx = MatchingCtx(target)
 
@@ -244,9 +235,3 @@ def main():
         for signature in group.signatures:
             match_ctx.resolve(signature)
         group.save_matches(match_ctx)
-
-
-if __name__ == '__main__':
-    import sys
-
-    sys.exit(main())

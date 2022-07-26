@@ -18,6 +18,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
+            'parm-match-sigs=parm.signature_files.cli:main',
             'parm_cli=parm.tests.cli:main',
         ]
     }
