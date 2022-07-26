@@ -302,5 +302,10 @@ def load_signature_results(sig_results):
     else:
         sig_result_paths = map(Path, sig_results)
 
-    return [(p.stem, load_signature_result_file(p)) for p in sig_result_paths]
+    results = {}
+    for p in sig_result_paths:
+        for result in load_signature_result_file(p):
+            assert result.name not in results
+            results[result.name] = result
+    return results
 
