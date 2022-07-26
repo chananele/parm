@@ -1,5 +1,5 @@
 ---
-name: sig_file_test
+name: basic_sanity
 exports:
   - test
 method: find_single

@@ -61,7 +61,9 @@ class MatchingCtx:
         self.signatures = []
         self.passed_signatures = []
         self.failed_signatures = []
-        self.not_run_signatures = []
+        self.not_run_signatures = set()
+
+        self.error_map = {}
 
         self.exporter_map = {}  # type: Dict[str, List[Signature]]
         self.importer_map = {}
@@ -82,18 +84,17 @@ class MatchingCtx:
         method = getattr(self.match_target, signature.method)
 
         try:
-            method(signature.pattern, match_result=mr)
-            passed = True
+            with mr.transact():
+                method(signature.pattern, match_result=mr)
             self.passed_signatures.append(signature)
         except PatternMismatchException:
-            passed = False
             self.failed_signatures.append(signature)
 
         for exp in signature.exports:
             try:
                 result = mr[exp]
             except KeyError:
-                assert not passed
+                self.add_signature_error(signature, f'symbol [{exp}] was not exported')
                 continue
             try:
                 old_result = self.match_results[exp]
@@ -122,21 +123,31 @@ class MatchingCtx:
 
         active_set.add(signature)
 
+        dont_run = False
         for imp in signature.imports:
             if imp in self.match_results:
                 continue
 
-            for exporter in self.exporter_map[imp]:
+            for exporter in self.exporter_map.get(imp, []):
                 try:
                     self.resolve(exporter, active_set)
                     break
                 except DependencyException:
                     continue
             else:
-                self.not_run_signatures.append(signature)
-                raise FailedDependencyException()
+                self.mark_signature_not_run(signature, f'unresolved import [{imp}]')
+                dont_run = True
+        if dont_run:
+            return
 
         self.perform_match(signature)
+
+    def add_signature_error(self, signature, error):
+        self.error_map.setdefault(signature, []).append(error)
+
+    def mark_signature_not_run(self, signature, reason):
+        self.not_run_signatures.add(signature)
+        self.add_signature_error(signature, reason)
 
 
 def format_signature_results(signature, ctx: MatchingCtx):
@@ -145,22 +156,25 @@ def format_signature_results(signature, ctx: MatchingCtx):
         lines.append(f'name: {signature.name}')
 
     if signature in ctx.failed_signatures:
-        lines.append('result: failure')
-        passed = False
+        result_line = 'result: failure'
     elif signature in ctx.passed_signatures:
-        lines.append('result: pass')
-        passed = True
+        result_line = 'result: pass'
     else:
         assert signature in ctx.not_run_signatures
-        lines.append('result: not run')
-        passed = False
+        result_line = 'result: not run'
+
+    lines.append(result_line)
+    errors = ctx.error_map.get(signature, [])
+    if errors:
+        lines.append('errors:')
+        for error in errors:
+            lines.append(f'  - {error}')
 
     match_lines = []
     for exp in signature.exports:
         try:
             result = ctx.match_results[exp]
         except KeyError:
-            assert not passed
             continue
         match_lines.append(f'  {exp}: {result}')
 
@@ -208,7 +222,7 @@ def load_signature_matching_groups(match_map):
     return groups
 
 
-def match_signature_files(target_path, signatures_path, output_path=None):
+def _create_match_map(signatures_path, output_path):
     sig_file_paths = find_all_signature_files(signatures_path)
     assert sig_file_paths, 'No signatures found!'
 
@@ -217,13 +231,19 @@ def match_signature_files(target_path, signatures_path, output_path=None):
 
     if not output_path.endswith('/') and not signatures_path.endswith('\\') and not os.path.isdir(output_path) and len(
             sig_file_paths) == 1:
-        match_map = {signatures_path: output_path}
+        match_map = {signatures_path: output_path + '.match'}
     else:
         match_map = {}
         for path in sig_file_paths:
             assert path.startswith(signatures_path) and path.endswith('.parm')
             piece = path[len(signatures_path):] + '.match'
             match_map[path] = os.path.join(output_path, piece)
+
+    return match_map
+
+
+def match_signatures(target_path, match_map):
+    assert isinstance(match_map, dict)
 
     target = CapstoneProgram.load_arm_elf(Path(target_path))
     groups = load_signature_matching_groups(match_map)
@@ -235,3 +255,8 @@ def match_signature_files(target_path, signatures_path, output_path=None):
         for signature in group.signatures:
             match_ctx.resolve(signature)
         group.save_matches(match_ctx)
+
+
+def match_signature_files(target_path, signatures_path, output_path=None):
+    match_map = _create_match_map(signatures_path, output_path)
+    match_signatures(target_path, match_map)

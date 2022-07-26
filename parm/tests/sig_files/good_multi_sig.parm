@@ -1,0 +1,24 @@
+---
+name: good_multi_p1
+exports:
+  - after_main
+method: match
+pattern: |
+  % goto(0x103E8)
+  ...
+  BX LR
+  after_main:
+---
+name: good_multi_p2
+imports:
+  - after_main
+exports:
+  - init_proc
+method: match
+pattern: |
+  % goto("after_main")
+  ... {2, 10}
+  BL @:init_proc
+  ... {2}
+  SUB *
+...

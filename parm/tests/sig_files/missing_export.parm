@@ -1,0 +1,9 @@
+---
+name: missing_export
+exports:
+  - exported
+  - unexported
+method: find_single
+pattern: |
+  exported: bne #0x1043c
+...

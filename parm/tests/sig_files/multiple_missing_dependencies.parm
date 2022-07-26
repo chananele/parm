@@ -1,0 +1,10 @@
+---
+name: missing_deps
+imports:
+  - a
+  - b
+exports:
+  - c
+pattern: |
+  0x1000: mov r0, r1
+...

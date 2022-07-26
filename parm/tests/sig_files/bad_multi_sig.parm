@@ -1,0 +1,21 @@
+---
+name: bad_multi_p1
+exports:
+  - exp1
+method: match
+pattern: |
+  % goto(0x103E8)
+  ... {3}
+  exp1: BX LR
+---
+name: bad_multi_p2
+imports:
+  - exp1
+exports:
+  - exp2
+method: match
+pattern: |
+  % goto("exp1")
+  ... {2}
+  exp2:
+...
