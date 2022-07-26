@@ -20,6 +20,13 @@ class Signature(pydantic.BaseModel):
         return id(self)
 
 
+class SignatureResult(pydantic.BaseModel):
+    name: Optional[str]
+    result: str
+    errors: List[str] = []
+    matches: Dict[str, int] = {}
+
+
 def parse_signature_document(doc):
     try:
         return Signature(**doc)
@@ -28,10 +35,29 @@ def parse_signature_document(doc):
         raise e
 
 
+def parse_signature_result_document(doc):
+    try:
+        return SignatureResult(**doc)
+    except pydantic.ValidationError as e:
+        print(e)
+        raise e
+
+
+def load_yaml_docs(path):
+    if isinstance(path, str):
+        path = Path(path)
+    with path.open('r') as src:
+        return list(yaml.safe_load_all(src))
+
+
 def load_signature_file(path):
-    with open(path, 'r') as src:
-        documents = list(yaml.safe_load_all(src))
+    documents = load_yaml_docs(path)
     return [parse_signature_document(doc) for doc in documents]
+
+
+def load_signature_result_file(path):
+    documents = load_yaml_docs(path)
+    return [parse_signature_result_document(doc) for doc in documents]
 
 
 class DependencyException(Exception):
@@ -260,3 +286,21 @@ def match_signatures(target_path, match_map):
 def match_signature_files(target_path, signatures_path, output_path=None):
     match_map = _create_match_map(signatures_path, output_path)
     match_signatures(target_path, match_map)
+
+
+def load_signature_results(sig_results):
+    sig_result_paths = []
+    if isinstance(sig_results, str):
+        sig_results = Path(sig_results)
+    if isinstance(sig_results, Path):
+        if sig_results.is_dir():
+            for path in sig_results.rglob('*'):
+                if path.name.endswith('.match'):
+                    sig_result_paths.append(path)
+        else:
+            sig_result_paths = [sig_results]
+    else:
+        sig_result_paths = map(Path, sig_results)
+
+    return [(p.stem, load_signature_result_file(p)) for p in sig_result_paths]
+
