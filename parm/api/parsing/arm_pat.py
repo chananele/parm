@@ -776,6 +776,20 @@ class SkipPat:
     def match_reverse(self, ctx: ExecutionContext, **kwargs):
         return self.match_logic(lambda x: x.fork_prev_instruction(), ctx, **kwargs)
 
+    def __str__(self):
+        a = ['', '']
+        if self.min_skip is not None:
+            a[0] = str(self.min_skip)
+        if self.max_skip is not None:
+            a[1] = str(self.max_skip)
+
+        if any(a):
+            rng = ' {{{}}}'.format(', '.join(a))
+        else:
+            rng = ''
+
+        return f'SkipPat[...{rng}]'
+
 
 # noinspection PyMethodMayBeStatic
 class ArmPatternTransformer(Transformer):
