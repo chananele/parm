@@ -20,6 +20,8 @@ setup(
         'console_scripts': [
             'parm-match-sigs=parm.signature_files.cli:main',
             'parm_cli=parm.tests.cli:main',
+            'iparm=parm.envs.ida.cli:cli',
+            'cparm=parm.envs.capstone.cli:cli',
         ]
     }
 )
